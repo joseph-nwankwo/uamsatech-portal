@@ -44,6 +44,34 @@ docker compose up -d --build
 
 Brings up Postgres, Redis, and the app together (`docker-compose.yml`). The app service will refuse to start without `AUTH_JWT_SECRET` set in your shell/`.env` (fails loudly via `${AUTH_JWT_SECRET:?...}`, a deliberate fix — see `docs/14-production-hardening.md`). Point a reverse proxy at it using `deploy/nginx/uamsatech.conf` for TLS termination, gzip, and edge-layer rate limiting.
 
+### Path C — Vercel
+
+The chosen path for this project's first real deployment. A few things are genuinely different on Vercel versus Docker/Kubernetes — read this whole section before running anything, not just the commands.
+
+**`output: "standalone"` in `next.config.ts` is harmless here** — it's for self-hosting outside Vercel (Docker, in this repo's case); Vercel's own build pipeline ignores it and uses its own optimized output regardless. No config change needed to deploy to Vercel.
+
+**`DATABASE_URL` cannot point at `localhost`.** Vercel functions run on Vercel's infrastructure, not this machine — the local Postgres this project has used all along (`localhost:5432`) is unreachable from there. You need a Postgres reachable from the public internet: Vercel Postgres (Neon-backed, adds itself to your project's env vars automatically), Neon, Supabase, or Railway all work. Pick one, get its connection string, and use that for `DATABASE_URL` in Vercel's project settings — not the value in your local `.env`.
+
+**Redis stops being optional in practice.** `lib/auth/rate-limit.ts`'s in-memory fallback relies on a long-running Node process keeping a `Map` in memory between requests — true for the Docker/K8s paths, **not true on Vercel's serverless model**, where each invocation can run in a different, short-lived container. Without `REDIS_URL` set, rate limiting on Vercel will be unreliable (each container effectively resets its own counter) — a real security-relevant gap for this platform specifically, not just a nice-to-have. Get a `REDIS_URL` from Upstash (Vercel's marketplace has a one-click integration) before this handles real traffic.
+
+**Connection pooling.** Serverless functions open many short-lived database connections — a Postgres instance can run out of connections under load without pooling in front of it. Neon and Supabase both include built-in pooling (use their pooled connection string, usually the default one they give you); if you're on plain Postgres, put PgBouncer or Prisma Accelerate in front of it.
+
+Steps, once you have a Postgres connection string and (ideally) a Redis one:
+
+```bash
+vercel login                     # browser-based auth — this is the one step only you can do
+vercel link                      # connects this local directory to a Vercel project
+vercel env add DATABASE_URL production
+vercel env add AUTH_JWT_SECRET production   # use a freshly generated one, never the local dev value
+vercel env add REDIS_URL production         # optional but see the note above
+# repeat vercel env add for any other vars this deployment needs (RESEND_API_KEY, STRIPE_SECRET_KEY, etc.)
+vercel --prod
+```
+
+Then run the database step (step 3 above) once against the real production `DATABASE_URL` — `npx prisma db push` and `node prisma/seed.js` from your machine with `DATABASE_URL` temporarily set to the production value works fine for a first deploy.
+
+Once this repo has a GitHub remote, connecting the repo in the Vercel dashboard (Project → Git) instead of using `vercel --prod` manually gives you auto-deploy on every push to `main`, and Vercel-native preview deployments per pull request — the more durable path for ongoing work, worth switching to once GitHub is set up.
+
 ### Path B — Kubernetes
 
 ```bash
@@ -69,19 +97,23 @@ Run the database steps (step 3) from a one-off pod or your CI pipeline before th
 
 Point your domain at whatever the ingress/load balancer/reverse-proxy host resolves to:
 
+- **Vercel** (this project's chosen host, and you already own `uamsatech.com`): in the Vercel dashboard, Project → Settings → Domains → add `uamsatech.com`. Vercel then shows you the exact record to add — usually an `A` record to `76.76.21.21` for the apex domain, or a `CNAME` to `cname.vercel-dns.com` for `www` — add whichever it actually displays (Vercel occasionally changes these) at your domain registrar's DNS settings. Propagation is typically minutes, sometimes up to 24-48 hours depending on your registrar's TTL.
 - Kubernetes: an `A`/`AAAA` record (or `CNAME` on a managed LB) to the ingress controller's external IP.
 - Docker Compose behind nginx: an `A` record to the host's public IP.
 
-`deploy/nginx/uamsatech.conf` is written for `uamsatech.com` and `www.uamsatech.com` — update the `server_name` directives if deploying under a different domain, and update `NEXT_PUBLIC_APP_URL` / `COOKIE_DOMAIN` to match.
+`deploy/nginx/uamsatech.conf` is written for `uamsatech.com` and `www.uamsatech.com` (Docker/K8s paths only — Vercel doesn't use nginx). Whichever path you use, update `NEXT_PUBLIC_APP_URL` and `COOKIE_DOMAIN` (`.uamsatech.com`, so the shared SSO cookie covers every product subdomain) to match.
 
 ## 6. SSL
 
+- **Vercel**: automatic. Once the domain is added and DNS verifies, Vercel provisions and renews the certificate itself — nothing to configure.
 - Kubernetes: `ingress.yaml`'s `cert-manager.io/cluster-issuer: letsencrypt-prod` annotation requests a certificate automatically once cert-manager and a `ClusterIssuer` named `letsencrypt-prod` exist on the cluster.
 - Docker/nginx: use certbot against `deploy/nginx/uamsatech.conf` — the config already reserves `/.well-known/acme-challenge/` above the HTTP→HTTPS redirect so renewal doesn't break.
 
 ## 7. CI/CD
 
-`.github/workflows/ci.yml` runs on every push/PR to `main`: typecheck, lint, format check, `prisma validate`, a real `prisma db push` against a Postgres service container, and a full `next build`. `.github/workflows/deploy.yml` builds and pushes the Docker image to `ghcr.io/<your-repo>` on merge to `main`, using the automatically-provided `GITHUB_TOKEN` — no extra secret needed for that step. It deliberately stops at "image pushed" — wire a final `kubectl apply`/platform-CLI step once you have a real cluster/host target; writing one now would describe infrastructure that doesn't exist.
+`.github/workflows/ci.yml` runs on every push/PR to `main`: typecheck, lint, format check, unit tests, a real `prisma db push` against a Postgres service container, a full `next build`, and the security integration test suite against a real running instance of that build. This runs regardless of hosting target.
+
+**On Vercel**, this is your actual deploy mechanism once the repo is on GitHub: connecting the repo in the Vercel dashboard deploys automatically on every push to `main` (and creates a preview deployment per pull request) — `.github/workflows/deploy.yml` (which builds and pushes a Docker image to `ghcr.io`) is for the Docker/Kubernetes paths and isn't part of the Vercel flow at all.
 
 ## 8. First-deploy checklist
 
@@ -95,4 +127,4 @@ Point your domain at whatever the ingress/load balancer/reverse-proxy host resol
 
 ## What this guide can't cover
 
-There is no live deployment behind this guide today — this repository has no cloud account, no registered domain, no DNS zone, and no provisioned Redis/S3/Postgres-as-a-service anywhere connected to it. Everything above was written against, and cross-checked with, the real Dockerfile/`docker-compose.yml`/`deploy/k8s/*`/`.github/workflows/*` files in this repo — but the actual `kubectl apply`, `docker compose up`, and DNS record creation have not been executed in this session, because there is nothing real to run them against. Execute this guide for real the first time you deploy, and correct anything here that turns out to be wrong in practice.
+As of 2026-07-11: a hosting target (Vercel) and domain (`uamsatech.com`, already owned) are decided, and the repo has its first real git commit — but nothing has actually deployed yet. That still needs, in order: (1) a GitHub remote to push this repo to, (2) `vercel login` run interactively in a real browser (not something automatable from here), (3) a hosted Postgres connection string, (4) ideally a Redis connection string given the serverless rate-limiting note in Path C above. None of these can be created on your behalf — they need your accounts, and in the case of a real domain-DNS change, direct access to your registrar. Everything in this guide was written against, and cross-checked with, the real Dockerfile/`docker-compose.yml`/`deploy/k8s/*`/`.github/workflows/*`/`vercel` CLI in this repo — but the actual `vercel --prod`, `kubectl apply`, `docker compose up`, and DNS record creation have not been executed, because the accounts to run them against don't exist here yet. Execute this guide for real the first time you deploy, and correct anything here that turns out to be wrong in practice.
