@@ -1,0 +1,11 @@
+# Non-secret configuration only — see secret.yaml for anything sensitive
+# (AUTH_JWT_SECRET, DATABASE_URL, payment provider keys).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uamsatech-config
+  namespace: uamsatech
+data:
+  NODE_ENV: "production"
+  NEXT_PUBLIC_APP_URL: "https://uamsatech.com"
+  COOKIE_DOMAIN: ".uamsatech.com"

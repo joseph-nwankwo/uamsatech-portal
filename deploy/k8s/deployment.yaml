@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uamsatech
+  namespace: uamsatech
+  labels:
+    app: uamsatech
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: uamsatech
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: uamsatech
+    spec:
+      containers:
+        - name: uamsatech
+          # Built by .github/workflows/deploy.yml. Pin to a commit SHA tag
+          # in a real rollout rather than :latest, so a bad deploy can be
+          # rolled back to a known-good image instead of "whatever :latest
+          # currently points to."
+          image: ghcr.io/OWNER/uamsatech:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: uamsatech-config
+            - secretRef:
+                name: uamsatech-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          # Liveness: only restarts the pod if the process itself is wedged.
+          # Deliberately not checking the database here — a DB blip
+          # shouldn't cause a restart storm across every pod.
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness: pulls a pod out of the Service's endpoint list if the
+          # database isn't reachable, without killing the pod.
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+      restartPolicy: Always

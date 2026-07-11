@@ -1,0 +1,11 @@
+# Tells Grafana to auto-load any dashboard JSON dropped in
+# deploy/grafana/dashboards/ (see uamsatech-overview.json) on startup.
+apiVersion: 1
+
+providers:
+  - name: uamsatech
+    folder: UAMSATech
+    type: file
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards

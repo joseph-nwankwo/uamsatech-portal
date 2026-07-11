@@ -1,0 +1,22 @@
+# Scrape config for the app's hand-rolled /api/metrics endpoint
+# (app/api/metrics/route.ts). Prometheus itself isn't available in this
+# sandbox, so this is syntax-correct per the documented config schema but
+# hasn't been runtime-verified by an actual Prometheus process — validate
+# with `promtool check config prometheus.yml` before use.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "uamsatech"
+    metrics_path: /api/metrics
+    scheme: http
+    static_configs:
+      - targets: ["app:3000"]
+        labels:
+          service: uamsatech
+    # If METRICS_TOKEN is set in the app's environment, uncomment and match
+    # it here — see lib/env.ts and app/api/metrics/route.ts.
+    # authorization:
+    #   type: Bearer
+    #   credentials: "<METRICS_TOKEN value>"

@@ -1,0 +1,590 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id                        String               @id @default(cuid())
+  email                     String               @unique
+  name                      String?
+  avatarUrl                 String?
+  passwordHash              String?
+  emailVerified             DateTime?
+  emailNotificationsEnabled Boolean              @default(true)
+  memberships               Membership[]
+  invitationsSent           Invitation[]
+  refreshTokens             RefreshToken[]
+  verificationTokens        VerificationToken[]
+  apiKeys                   ApiKey[]
+  supportTickets            SupportTicket[]
+  ticketMessages            TicketMessage[]
+  bugReports                BugReport[]
+  featureRequests           FeatureRequest[]
+  featureRequestVotes       FeatureRequestVote[]
+  auditLogs                 AuditLog[]
+  comments                  Comment[]
+  analyticsEvents           AnalyticsEvent[]
+  subscriptions             Subscription[]
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+
+  @@map("users")
+}
+
+model Organization {
+  id              String           @id @default(cuid())
+  name            String
+  slug            String           @unique
+  memberships     Membership[]
+  invitations     Invitation[]
+  subscriptions   Subscription[]
+  refreshTokens   RefreshToken[]
+  apiKeys         ApiKey[]
+  usageRecords    UsageRecord[]
+  auditLogs       AuditLog[]
+  analyticsEvents AnalyticsEvent[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           UserRole     @default(MEMBER)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id              String       @id @default(cuid())
+  email           String
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role            UserRole     @default(MEMBER)
+  tokenHash       String       @unique
+  invitedByUserId String
+  invitedBy       User         @relation(fields: [invitedByUserId], references: [id])
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@unique([email, organizationId])
+  @@map("invitations")
+}
+
+model RefreshToken {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  tokenHash      String        @unique
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@map("refresh_tokens")
+}
+
+enum VerificationTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model VerificationToken {
+  id         String                @id @default(cuid())
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String                @unique
+  type       VerificationTokenType
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime              @default(now())
+
+  @@map("verification_tokens")
+}
+
+model Product {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String
+  productPlans  ProductPlan[]
+  subscriptions Subscription[]
+  usageRecords  UsageRecord[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("products")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+}
+
+enum BillingProvider {
+  STRIPE
+  PAYSTACK
+  FLUTTERWAVE
+}
+
+enum PlanInterval {
+  MONTHLY
+  YEARLY
+}
+
+// A platform-wide tier definition (Free / Starter / Professional /
+// Enterprise). Deliberately has no price or product of its own — the same
+// four tiers apply across every product, each priced independently via
+// ProductPlan. Mirrors how Stripe itself separates Product from Price.
+model Plan {
+  id           String        @id @default(cuid())
+  key          String        @unique
+  name         String
+  description  String?
+  sortOrder    Int           @default(0)
+  productPlans ProductPlan[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("plans")
+}
+
+// The concrete, purchasable offering: this Plan tier, for this Product, at
+// this price. Not every product has every tier (e.g. UAMSA has none — it's
+// quotation-only; Records has no Free tier).
+model ProductPlan {
+  id                String         @id @default(cuid())
+  productId         String
+  product           Product        @relation(fields: [productId], references: [id])
+  planId            String
+  plan              Plan           @relation(fields: [planId], references: [id])
+  interval          PlanInterval
+  priceCents        Int
+  currency          String         @default("USD")
+  isStartingPrice   Boolean        @default(false)
+  stripePriceId     String?
+  paystackPlanCode  String?
+  flutterwavePlanId String?
+  features          String[]
+  isActive          Boolean        @default(true)
+  subscriptions     Subscription[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([productId, planId])
+  @@map("product_plans")
+}
+
+// Either organizationId or userId is set, never both, never neither — a
+// database CHECK constraint enforces this (see the migration SQL), since an
+// individual subscriber has no Organization to attach to. Individual plans
+// only exist for products whose `pricingPlans` includes "individual"
+// (lib/site-config.ts) — enforced in lib/billing/checkout-context.ts.
+model Subscription {
+  id                     String             @id @default(cuid())
+  organizationId         String?
+  organization           Organization?      @relation(fields: [organizationId], references: [id])
+  userId                 String?
+  user                   User?              @relation(fields: [userId], references: [id])
+  productId              String
+  product                Product            @relation(fields: [productId], references: [id])
+  productPlanId          String?
+  productPlan            ProductPlan?       @relation(fields: [productPlanId], references: [id])
+  couponId               String?
+  coupon                 Coupon?            @relation(fields: [couponId], references: [id])
+  status                 SubscriptionStatus @default(ACTIVE)
+  provider               BillingProvider?
+  providerCustomerId     String?
+  providerSubscriptionId String?            @unique
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  invoices               Invoice[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@unique([organizationId, productId])
+  @@unique([userId, productId])
+  @@map("subscriptions")
+}
+
+enum InvoiceStatus {
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model Invoice {
+  id                String          @id @default(cuid())
+  subscriptionId    String
+  subscription      Subscription    @relation(fields: [subscriptionId], references: [id])
+  organizationId    String?
+  userId            String?
+  amountCents       Int
+  currency          String          @default("NGN")
+  status            InvoiceStatus   @default(OPEN)
+  provider          BillingProvider
+  providerInvoiceId String?         @unique
+  hostedInvoiceUrl  String?
+  periodStart       DateTime
+  periodEnd         DateTime
+  paidAt            DateTime?
+  createdAt         DateTime        @default(now())
+
+  @@map("invoices")
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model Coupon {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  discountType     DiscountType
+  discountValue    Int
+  currency         String?
+  maxRedemptions   Int?
+  timesRedeemed    Int          @default(0)
+  validFrom        DateTime     @default(now())
+  validUntil       DateTime?
+  stripeCouponId   String?
+  paystackCouponId String?
+  isActive         Boolean      @default(true)
+  subscriptions    Subscription[]
+  createdAt        DateTime     @default(now())
+
+  @@map("coupons")
+}
+
+model UsageRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
+  metric         String
+  quantity       Int
+  recordedAt     DateTime     @default(now())
+
+  @@map("usage_records")
+}
+
+model FeatureFlag {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  name              String
+  description       String?
+  isEnabled         Boolean  @default(false)
+  rolloutPercentage Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  excerpt     String?
+  content     Json
+  publishedAt DateTime?
+  authorId    String?
+  author      Author?   @relation(fields: [authorId], references: [id])
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  tags        Tag[]     @relation("BlogPostTags")
+  comments    Comment[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("blog_posts")
+}
+
+model Author {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  name      String
+  title     String?
+  bio       String?
+  initials  String
+  posts     BlogPost[]
+  createdAt DateTime   @default(now())
+
+  @@map("authors")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String?
+  posts       BlogPost[]
+  createdAt   DateTime   @default(now())
+
+  @@map("categories")
+}
+
+model Tag {
+  id    String     @id @default(cuid())
+  slug  String     @unique
+  name  String
+  posts BlogPost[] @relation("BlogPostTags")
+
+  @@map("tags")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("comments")
+}
+
+// Knowledge base article. Repurposed from the unused Phase 1 `Documentation`
+// model (never wired to any route) rather than adding a second, overlapping
+// content table alongside it.
+model KnowledgeBaseArticle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  category    String
+  excerpt     String?
+  content     Json
+  productSlug String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("knowledge_base_articles")
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model SupportTicket {
+  id        String              @id @default(cuid())
+  subject   String
+  message   String
+  status    SupportTicketStatus @default(OPEN)
+  userId    String?
+  user      User?               @relation(fields: [userId], references: [id])
+  messages  TicketMessage[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@map("support_tickets")
+}
+
+enum TicketMessageAuthor {
+  USER
+  STAFF
+}
+
+// The "live chat" feature: an async message thread on a ticket, not a
+// real-time widget. There is no platform-staff concept anywhere in this
+// codebase (see Category/blog decision in docs/10-blog-cms.md) so STAFF
+// messages are authored directly via script, the same way blog/docs content
+// is managed — not through a live agent UI.
+model TicketMessage {
+  id        String              @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    TicketMessageAuthor
+  userId    String?
+  user      User?               @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime            @default(now())
+
+  @@map("ticket_messages")
+}
+
+enum BugSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BugReportStatus {
+  OPEN
+  CONFIRMED
+  FIXED
+  WONT_FIX
+}
+
+model BugReport {
+  id               String          @id @default(cuid())
+  title            String
+  description      String
+  stepsToReproduce String?
+  severity         BugSeverity     @default(MEDIUM)
+  productSlug      String?
+  status           BugReportStatus @default(OPEN)
+  userId           String?
+  user             User?           @relation(fields: [userId], references: [id])
+  email            String?
+  createdAt        DateTime        @default(now())
+
+  @@map("bug_reports")
+}
+
+enum FeatureRequestStatus {
+  OPEN
+  PLANNED
+  IN_PROGRESS
+  SHIPPED
+  CLOSED
+}
+
+model FeatureRequest {
+  id          String               @id @default(cuid())
+  title       String
+  description String
+  status      FeatureRequestStatus @default(OPEN)
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id])
+  votes       FeatureRequestVote[]
+  createdAt   DateTime             @default(now())
+
+  @@map("feature_requests")
+}
+
+model FeatureRequestVote {
+  id               String         @id @default(cuid())
+  featureRequestId String
+  featureRequest   FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User           @relation(fields: [userId], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@unique([featureRequestId, userId])
+  @@map("feature_request_votes")
+}
+
+enum IncidentStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
+}
+
+enum IncidentSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+model Incident {
+  id         String           @id @default(cuid())
+  title      String
+  body       String
+  status     IncidentStatus   @default(INVESTIGATING)
+  severity   IncidentSeverity @default(MINOR)
+  service    String
+  startedAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@map("incidents")
+}
+
+model ContactMessage {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  institution String?
+  message     String
+  createdAt   DateTime @default(now())
+
+  @@map("contact_messages")
+}
+
+model NewsletterSubscriber {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  unsubscribeTokenHash String    @unique
+  unsubscribedAt       DateTime?
+  createdAt            DateTime  @default(now())
+
+  @@map("newsletter_subscribers")
+}
+
+model ApiKey {
+  id             String        @id @default(cuid())
+  name           String
+  keyPrefix      String
+  keyHash        String        @unique
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  action         String
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+
+  @@map("audit_logs")
+}
+
+// First-party product/marketing event log — powers the admin Product
+// Analytics and Conversion Tracking dashboards. Deliberately separate from
+// AuditLog: that model is a security/compliance trail of account-affecting
+// actions, this one is funnel/usage signal and carries no such guarantee.
+model AnalyticsEvent {
+  id             String        @id @default(cuid())
+  name           String
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([name, createdAt])
+  @@map("analytics_events")
+}

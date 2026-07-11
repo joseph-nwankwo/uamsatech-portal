@@ -1,0 +1,57 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# prisma
+/prisma/migrations/dev.db*
+
+# docker
+docker-data/
+
+# kubernetes — a filled-in secret manifest must never be committed; the
+# tracked deploy/k8s/secret.yaml is a placeholder template only.
+deploy/k8s/secret.local.yaml
+deploy/k8s/*.local.yaml
+
+# vercel
+.vercel
+
+# database backups — real dump files contain user emails and password
+# hashes, never belong in git regardless of how the repo's hosted
+/backups/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

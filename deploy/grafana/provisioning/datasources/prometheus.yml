@@ -1,0 +1,13 @@
+# Grafana datasource provisioning — auto-registers the Prometheus instance
+# scraping deploy/prometheus/prometheus.yml. Grafana isn't available in this
+# sandbox; this follows Grafana's documented provisioning schema but hasn't
+# been loaded by a real Grafana instance.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

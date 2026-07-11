@@ -1,0 +1,40 @@
+name: Security scan
+
+# Runs independently of CI, on its own schedule, so a new CVE disclosed in an
+# already-merged dependency gets caught even if nobody pushes code that
+# week — Dependabot (.github/dependabot.yml) proposes the fix, this is what
+# actually notices there's a problem in the meantime. `workflow_dispatch`
+# lets you trigger it on demand instead of waiting for the schedule.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday, 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (fails the run on any high/critical vulnerability)
+        run: npm audit --audit-level=high
+
+      - name: Full dependency report (always generated, even if the above passed)
+        if: always()
+        run: npm audit --json > audit-report.json || true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: audit-report.json
+          retention-days: 90

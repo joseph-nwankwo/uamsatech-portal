@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: uamsatech
+          POSTGRES_PASSWORD: uamsatech
+          POSTGRES_DB: uamsatech_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U uamsatech -d uamsatech_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://uamsatech:uamsatech@localhost:5432/uamsatech_ci
+      NODE_ENV: test
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # CI-only placeholder — real deployments set this from a repo/environment
+      # secret (see .github/workflows/deploy.yml). Long enough to pass
+      # lib/env.ts's 32-character minimum; not used to sign anything real.
+      AUTH_JWT_SECRET: ci-placeholder-secret-not-used-in-production-00
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma validate
+        run: npx prisma validate
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Push schema to CI database
+        run: npx prisma db push --skip-generate
+
+      - name: Seed CI database
+        # tests/security/** exercises real seeded content (e.g. a real blog
+        # post to comment on) — same DB-backed content this project has used
+        # since Phase 10, not fixtures invented just for tests.
+        run: node prisma/seed.js
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Start app for integration tests
+        # The dev server has a documented module-isolation quirk that makes
+        # in-memory rate limiting unreliable across requests (see
+        # docs/14-production-hardening.md) — tests run against the real
+        # production standalone server, the same artifact the Dockerfile
+        # ships, not `next dev`.
+        run: |
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          node .next/standalone/server.js &
+          echo $! > server.pid
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/health > /dev/null && exit 0
+            sleep 1
+          done
+          echo "App did not become healthy in time" >&2
+          exit 1
+
+      - name: Security & integration tests
+        env:
+          TEST_BASE_URL: http://localhost:3000
+        run: npm run test:security
+
+      - name: Stop app
+        if: always()
+        run: kill "$(cat server.pid)" 2>/dev/null || true

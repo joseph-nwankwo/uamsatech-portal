@@ -1,0 +1,45 @@
+name: Monthly security review reminder
+
+# Opens a GitHub issue once a month as a prompt for a deeper, human-led
+# security review — auth flows, access control logic, new attack surface
+# added since the last review. This is deliberately NOT another automated
+# scan: security-scan.yml (weekly npm audit) and Dependabot already cover
+# known-CVE dependency issues on their own schedule. This workflow exists
+# because that automation can't catch a new logic bug in, say, a freshly
+# added route's permission check — only a human re-reading the code does
+# that, and a human review only happens reliably if something asks.
+on:
+  schedule:
+    - cron: "13 8 1 * *" # 08:13 UTC on the 1st of every month
+  workflow_dispatch: {}
+
+jobs:
+  open-review-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open review checklist issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const month = new Date().toISOString().slice(0, 7);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Monthly security review — ${month}`,
+              labels: ["security-review"],
+              body: [
+                "Recurring monthly checklist. Automated scanning (`security-scan.yml`, Dependabot) already covers known-CVE dependency issues — this review is for what those can't catch: logic bugs in access control and anything new since last month.",
+                "",
+                "- [ ] Re-run `TEST_BASE_URL=<prod-url> npm run test:security` against the live instance and confirm all assertions still hold",
+                "- [ ] Diff `git log --since='1 month ago'` for any new API route — does it check auth? Rate-limited? Scoped to the right organization/user?",
+                "- [ ] Re-check `/admin` still 404s a non-admin, and `ADMIN_EMAILS` only lists people who should still have access",
+                "- [ ] Re-check for any new route returning a raw Prisma `include: { user: true }` (or similar) instead of an explicit `select` — the historical passwordHash-leak class of bug",
+                "- [ ] Skim `npm audit` output beyond just high/critical — anything Dependabot proposed but wasn't merged?",
+                "- [ ] Confirm `AUTH_JWT_SECRET`, provider webhook secrets, and DB credentials haven't leaked into a log line, error message, or client bundle",
+                "- [ ] Spot-check response headers on a few routes for the full security header set (CSP/HSTS/X-Frame-Options) and absence of `X-Powered-By`",
+                "",
+                "Close this issue once reviewed. See `docs/maintenance-guide.md` for the full routine-review-cadence context.",
+              ].join("\n"),
+            });

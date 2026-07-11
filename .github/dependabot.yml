@@ -1,0 +1,34 @@
+# GitHub-native automated dependency patching — Dependabot opens a PR
+# whenever an update (especially a security fix) is available, and CI
+# (.github/workflows/ci.yml) runs the full typecheck/lint/build/test suite
+# against every PR it opens, including the security-focused integration
+# tests — so a bad patch gets caught before merge, not after.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      # Batch routine, low-risk patch/minor bumps into one PR instead of
+      # dozens of individual ones — keeps the PR queue reviewable. Major
+      # version bumps are deliberately excluded from this group (see
+      # `prisma` note below) so they always get their own PR to review
+      # individually, not silently bundled in with everything else.
+      routine-updates:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Deliberately pinned — see docs/maintenance-guide.md. Prisma 7 drops
+      # the classic `datasource { url = env(...) }` schema syntax for
+      # driver adapters + prisma.config.ts, a real breaking migration, not
+      # a drop-in upgrade. Don't let Dependabot silently propose it.
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

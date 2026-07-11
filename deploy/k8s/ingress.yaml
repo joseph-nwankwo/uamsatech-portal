@@ -1,0 +1,40 @@
+# Assumes an nginx ingress controller and cert-manager are already installed
+# on the cluster — this only declares routing + a TLS certificate request,
+# it doesn't install either of those components.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uamsatech
+  namespace: uamsatech
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "5m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - uamsatech.com
+        - www.uamsatech.com
+      secretName: uamsatech-tls
+  rules:
+    - host: uamsatech.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: uamsatech
+                port:
+                  number: 80
+    - host: www.uamsatech.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: uamsatech
+                port:
+                  number: 80

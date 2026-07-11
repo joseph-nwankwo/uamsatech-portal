@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uamsatech
+      POSTGRES_PASSWORD: uamsatech
+      POSTGRES_DB: uamsatech_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uamsatech -d uamsatech_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional — rate limiting works without this (falls back to in-memory),
+  # but a shared store is what makes rate limiting correct once "app" is
+  # scaled to more than one replica. Not required for a single-instance
+  # deployment.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://uamsatech:uamsatech@postgres:5432/uamsatech_db
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Required — lib/env.ts fails validation and the app won't boot
+      # without this (min 32 chars). Previously missing here entirely, which
+      # meant `docker compose up` would build successfully and then crash on
+      # start. Override with a real secret via a .env file or
+      # `docker compose run -e AUTH_JWT_SECRET=...` — never commit a real one.
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET must be set (min 32 chars) — see .env.example}
+      # Optional — uncomment/set to share auth cookies across *.uamsatech.com
+      # subdomains in a real multi-subdomain deployment.
+      # COOKIE_DOMAIN: ".uamsatech.com"
+      # Optional — object storage for avatar uploads (see .env.example for
+      # all 6 vars). Uncomment and set via a .env file to enable.
+      # S3_BUCKET: ""
+      # S3_REGION: ""
+      # S3_ACCESS_KEY_ID: ""
+      # S3_SECRET_ACCESS_KEY: ""
+      # S3_ENDPOINT: ""
+      # S3_PUBLIC_URL: ""
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  redis_data:
