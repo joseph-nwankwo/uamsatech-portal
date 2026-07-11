@@ -7,7 +7,7 @@ import {
   isFlutterwaveConfigured,
 } from "@/lib/billing/flutterwave";
 import { resolveCheckoutContext } from "@/lib/billing/checkout-context";
-import { applyCoupon } from "@/lib/billing/coupon";
+import { applyCouponDiscount } from "@/lib/billing/coupons";
 import { logActivity } from "@/lib/portal/audit";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 
@@ -55,7 +55,10 @@ export async function POST(request: Request) {
 
   const result = await initializeFlutterwavePayment({
     email: user.email,
-    amount: applyCoupon(productPlan.priceCents, coupon) / 100,
+    amount:
+      (coupon
+        ? applyCouponDiscount(productPlan.priceCents, coupon)
+        : productPlan.priceCents) / 100,
     currency: productPlan.currency,
     txRef,
     redirectUrl: `${env.NEXT_PUBLIC_APP_URL}/portal/billing?checkout=success`,

@@ -7,7 +7,7 @@ import {
   isPaystackConfigured,
 } from "@/lib/billing/paystack";
 import { resolveCheckoutContext } from "@/lib/billing/checkout-context";
-import { applyCoupon } from "@/lib/billing/coupon";
+import { applyCouponDiscount } from "@/lib/billing/coupons";
 import { logActivity } from "@/lib/portal/audit";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 
@@ -55,7 +55,9 @@ export async function POST(request: Request) {
 
   const result = await initializePaystackTransaction({
     email: user.email,
-    amountKobo: applyCoupon(productPlan.priceCents, coupon),
+    amountKobo: coupon
+      ? applyCouponDiscount(productPlan.priceCents, coupon)
+      : productPlan.priceCents,
     reference,
     callbackUrl: `${env.NEXT_PUBLIC_APP_URL}/portal/billing?checkout=success`,
     metadata: {

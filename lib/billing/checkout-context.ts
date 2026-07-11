@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { products as marketingProducts } from "@/lib/site-config";
+import { validateCoupon } from "@/lib/billing/coupons";
 import type { AccessTokenPayload } from "@/lib/auth/jwt";
 import type { Coupon, Product, ProductPlan, User } from "@prisma/client";
 
@@ -61,19 +62,10 @@ export async function resolveCheckoutContext(
 
   let coupon: Coupon | null = null;
   if (couponCode) {
-    const found = await db.coupon.findUnique({
-      where: { code: couponCode.trim().toUpperCase() },
-    });
-    if (
-      !found ||
-      !found.isActive ||
-      (found.validUntil && found.validUntil < new Date()) ||
-      (found.maxRedemptions !== null &&
-        found.timesRedeemed >= found.maxRedemptions)
-    ) {
+    coupon = await validateCoupon(couponCode.trim().toUpperCase());
+    if (!coupon) {
       return { error: "This coupon code isn't valid." };
     }
-    coupon = found;
   }
 
   return {
