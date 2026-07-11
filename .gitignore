@@ -55,3 +55,7 @@ deploy/k8s/*.local.yaml
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local scratch logs
+dev.log
+*.log
