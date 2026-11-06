@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const envSchema = z.object({
+const baseEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -9,6 +9,36 @@ const envSchema = z.object({
   AUTH_JWT_SECRET: z
     .string()
     .min(32, "AUTH_JWT_SECRET must be at least 32 characters"),
+
+  // Shared with LectureSuite and ScholarSuite for SSO launch tokens.
+  // Must NOT equal AUTH_JWT_SECRET (different purpose, different secret).
+  CRAFT_LAUNCH_SECRET: z
+    .string()
+    .min(32, "CRAFT_LAUNCH_SECRET must be at least 32 characters"),
+
+  // SSO target URLs — where each product's /api/auth/sso endpoint lives.
+  LECTURESUITE_SSO_URL: z
+    .string()
+    .url()
+    .default("http://localhost:4000/api/auth/sso"),
+  SCHOLARSUITE_SSO_URL: z
+    .string()
+    .url()
+    .default("http://localhost:4001/api/auth/sso"),
+
+  // Server-to-server entitlement verification (AS-P0-SECURITY-006A).
+  // One credential PER PRODUCT, presented by that product's backend as a
+  // Bearer token to POST /api/internal/entitlements/verify. Optional at boot;
+  // a product whose credential is unset is refused with 503 (fail closed).
+  // Must differ from CRAFT_LAUNCH_SECRET, AUTH_JWT_SECRET and each other.
+  LECTURESUITE_ENTITLEMENT_SERVICE_SECRET: z
+    .string()
+    .min(32, "LECTURESUITE_ENTITLEMENT_SERVICE_SECRET must be at least 32 characters")
+    .optional(),
+  SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET: z
+    .string()
+    .min(32, "SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET must be at least 32 characters")
+    .optional(),
   COOKIE_DOMAIN: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("UAMSATech <noreply@uamsatech.com>"),
@@ -59,5 +89,37 @@ const envSchema = z.object({
   // distribution, or `https://<bucket>.s3.<region>.amazonaws.com`).
   S3_PUBLIC_URL: z.string().optional(),
 });
+
+// Exported for unit tests. The launch secret is shared with the product
+// backends, so it must never double as the portal's own session secret.
+export const envSchema = baseEnvSchema
+  .refine((cfg) => cfg.CRAFT_LAUNCH_SECRET !== cfg.AUTH_JWT_SECRET, {
+    message: "CRAFT_LAUNCH_SECRET must differ from AUTH_JWT_SECRET",
+    path: ["CRAFT_LAUNCH_SECRET"],
+  })
+  .superRefine((cfg, ctx) => {
+    // Each entitlement service credential is single-purpose.
+    const reserved = [cfg.CRAFT_LAUNCH_SECRET, cfg.AUTH_JWT_SECRET];
+    const services = [
+      ["LECTURESUITE_ENTITLEMENT_SERVICE_SECRET", cfg.LECTURESUITE_ENTITLEMENT_SERVICE_SECRET],
+      ["SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET", cfg.SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET],
+    ] as const;
+    for (const [name, value] of services) {
+      if (value && reserved.includes(value)) {
+        ctx.addIssue({
+          code: "custom",
+          path: [name],
+          message: `${name} must differ from CRAFT_LAUNCH_SECRET and AUTH_JWT_SECRET`,
+        });
+      }
+    }
+    if (services[0][1] && services[0][1] === services[1][1]) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET"],
+        message: "Each product must have its own entitlement service secret",
+      });
+    }
+  });
 
 export const env = envSchema.parse(process.env);

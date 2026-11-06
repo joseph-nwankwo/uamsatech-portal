@@ -1,0 +1,176 @@
+// AS-P0-SECURITY-007 — isolated DDL validation in a THROWAWAY database.
+// Creates a uniquely named database on the loopback dev server, applies
+// baseline-current.sql + additive.sql + supplement.sql, runs behavioural
+// assertions, and ALWAYS drops the database. Touches no existing database.
+const path = require('path'), fs = require('fs'), crypto = require('crypto')
+const { execFileSync } = require('child_process')
+const PORTAL = 'C:/Users/MY PC/Desktop/Apps/uamsatech'
+const HERE = __dirname
+const { PrismaClient } = require(path.join(PORTAL, 'node_modules/@prisma/client'))
+
+const base = new URL((fs.readFileSync(path.join(PORTAL, '.env'), 'utf8').match(/^DATABASE_URL="?([^"\n]+)"?/m) || [])[1])
+if (!['localhost', '127.0.0.1', '[::1]'].includes(base.hostname)) { console.error('ABORT: server is not loopback'); process.exit(2) }
+const NAME = `as_p0_007_validation_${crypto.randomBytes(4).toString('hex')}`
+const at = (db) => { const u = new URL(base.toString()); u.pathname = `/${db}`; u.search = ''; u.searchParams.set('connection_limit', '1'); return u.toString() }
+
+// Never print credentials: strip user:password from any URL in a message.
+const redact = (s) => String(s).replace(/(postgres(?:ql)?:\/\/)[^@\s/]+@/gi, '$1***@')
+
+const results = []
+const pass = (name) => { results.push(['PASS', name]); }
+const fail = (name, why) => { results.push(['FAIL', `${name} — ${why}`]) }
+
+async function expectOk(db, name, sql) {
+  try { await db.$executeRawUnsafe(sql); pass(name) } catch (e) { fail(name, `unexpected error: ${e.message.split('\n').slice(-1)[0]}`) }
+}
+async function expectErr(db, name, sql, pattern) {
+  try { await db.$executeRawUnsafe(sql); fail(name, 'statement succeeded but should have been rejected') }
+  catch (e) { const m = String(e.message); pattern.test(m) ? pass(name) : fail(name, `wrong error: ${m.split('\n').slice(-1)[0]}`) }
+}
+
+;(async () => {
+  const admin = new PrismaClient({ datasources: { db: { url: at('postgres') } } })
+  const [exists] = await admin.$queryRawUnsafe(`SELECT count(*)::int n FROM pg_database WHERE datname = '${NAME}'`)
+  if (exists.n) { console.error('ABORT: name collision'); process.exit(2) }
+  await admin.$executeRawUnsafe(`CREATE DATABASE "${NAME}"`)
+  console.log(`created throwaway database ${NAME}`)
+  let db, db2
+  try {
+    // Prisma CLI run directly with node (no shell → paths with spaces are safe).
+    // The URL is passed via an env var reference so it never appears in argv or errors.
+    const PRISMA_CLI = path.join(PORTAL, 'node_modules/prisma/build/index.js')
+    for (const f of ['baseline-current.sql', 'additive.sql', 'supplement.sql']) {
+      try {
+        execFileSync(process.execPath, [PRISMA_CLI, 'db', 'execute', '--url', at(NAME), '--file', path.join(HERE, f)], {
+          cwd: PORTAL, stdio: 'pipe', env: { ...process.env, PRISMA_HIDE_UPDATE_MESSAGE: '1' },
+        })
+        pass(`applies cleanly: ${f}`)
+      } catch (e) {
+        throw new Error(`failed to apply ${f}: ${redact(String(e.stderr || e.message))}`)
+      }
+    }
+    db = new PrismaClient({ datasources: { db: { url: at(NAME) } } })
+    db2 = new PrismaClient({ datasources: { db: { url: at(NAME) } } })
+    const [pg] = await db.$queryRawUnsafe(`SELECT split_part(version(), ' ', 2) v`)
+    console.log(`PostgreSQL ${pg.v}`)
+
+    // Fixtures (existing portal tables).
+    await db.$executeRawUnsafe(`INSERT INTO users (id,email,"updatedAt") VALUES ('u_member','m@x',now()),('u_member2','m2@x',now()),('u_member3','m3@x',now()),('u_staff','s@x',now()),('u_staff2','s2@x',now()),('u_owner','o@x',now())`)
+    await db.$executeRawUnsafe(`INSERT INTO organizations (id,name,slug,"updatedAt") VALUES ('org1','Uni','uni',now())`)
+    await db.$executeRawUnsafe(`INSERT INTO products (id,slug,name,"updatedAt") VALUES ('p_lec','lecturercraft','LS',now()),('p_sch','scholarcraft','SS',now())`)
+    await db.$executeRawUnsafe(`INSERT INTO plans (id,key,name,"updatedAt") VALUES ('plan1','pro','Pro',now())`)
+    await db.$executeRawUnsafe(`INSERT INTO product_plans (id,"productId","planId",interval,"priceCents","updatedAt") VALUES ('pp1','p_lec','plan1','MONTHLY',1500,now())`)
+    await db.$executeRawUnsafe(`INSERT INTO subscriptions (id,"productId","userId","updatedAt") VALUES ('sub1','p_lec','u_member',now())`)
+
+    // D7 — provider-scoped invoice ids.
+    await expectOk(db, 'D7: same providerInvoiceId under DIFFERENT providers is accepted',
+      `INSERT INTO invoices (id,"subscriptionId","amountCents",provider,"providerInvoiceId","periodStart","periodEnd") VALUES ('i1','sub1',1500,'PAYSTACK','ref-1',now(),now()+interval '1 month'),('i2','sub1',1500,'FLUTTERWAVE','ref-1',now(),now()+interval '1 month')`)
+    await expectErr(db, 'D7: duplicate providerInvoiceId under the SAME provider is rejected',
+      `INSERT INTO invoices (id,"subscriptionId","amountCents",provider,"providerInvoiceId","periodStart","periodEnd") VALUES ('i3','sub1',1500,'PAYSTACK','ref-1',now(),now())`, /23505[\s\S]*Key \(provider, "providerInvoiceId"\)/)
+    await expectOk(db, 'D7: NULL providerInvoiceId is allowed repeatedly (NULLS DISTINCT policy)',
+      `INSERT INTO invoices (id,"subscriptionId","amountCents",provider,"periodStart","periodEnd") VALUES ('i4','sub1',0,'STRIPE',now(),now()),('i5','sub1',0,'STRIPE',now(),now())`)
+
+    // Ledger.
+    await expectOk(db, 'ledger: a period for (invoice, subscription)',
+      `INSERT INTO entitlement_periods (id,"subscriptionId","invoiceId","productId","paidAt",interval,"periodStart","periodEnd","amountCents",currency,"updatedAt") VALUES ('ep1','sub1','i1','p_lec',now(),'MONTHLY',now(),now()+interval '1 month',1500,'NGN',now())`)
+    await expectErr(db, 'ledger: the same payment cannot buy a second period for the same subscription',
+      `INSERT INTO entitlement_periods (id,"subscriptionId","invoiceId","productId","paidAt","periodStart","periodEnd","amountCents",currency,"updatedAt") VALUES ('ep2','sub1','i1','p_lec',now(),now(),now()+interval '1 day',1,'NGN',now())`, /23505[\s\S]*Key \("invoiceId", "subscriptionId"\)/)
+    await expectErr(db, 'ledger: periodEnd must be after periodStart',
+      `INSERT INTO entitlement_periods (id,"subscriptionId","invoiceId","productId","paidAt","periodStart","periodEnd","amountCents",currency,"updatedAt") VALUES ('ep3','sub1','i2','p_lec',now(),now(),now(),1,'NGN',now())`, /entitlement_periods_window_chk/)
+
+    // Refunds / disputes / events — provider-scoped uniqueness.
+    await expectOk(db, 'refunds: multiple partial refunds on one payment are representable',
+      `INSERT INTO payment_refunds (id,provider,"providerRefundId","invoiceId","amountCents",currency,status,"providerUpdatedAt","updatedAt") VALUES ('r1','PAYSTACK','rf-1','i1',500,'NGN','SUCCEEDED',now(),now()),('r2','PAYSTACK','rf-2','i1',300,'NGN','SUCCEEDED',now(),now())`)
+    await expectErr(db, 'refunds: a duplicate (provider, providerRefundId) delivery cannot create a second row',
+      `INSERT INTO payment_refunds (id,provider,"providerRefundId","invoiceId","amountCents",currency,"providerUpdatedAt","updatedAt") VALUES ('r3','PAYSTACK','rf-1','i1',500,'NGN',now(),now())`, /23505[\s\S]*Key \(provider, "providerRefundId"\)/)
+    await expectOk(db, 'refunds: the same refund id under a different provider does not collide',
+      `INSERT INTO payment_refunds (id,provider,"providerRefundId","invoiceId","amountCents",currency,"providerUpdatedAt","updatedAt") VALUES ('r4','FLUTTERWAVE','rf-1','i2',100,'NGN',now(),now())`)
+    await expectErr(db, 'refunds: amount must be positive', `INSERT INTO payment_refunds (id,provider,"providerRefundId","invoiceId","amountCents",currency,"providerUpdatedAt","updatedAt") VALUES ('r5','STRIPE','rf-9','i1',0,'NGN',now(),now())`, /payment_refunds_amount_chk/)
+    await expectOk(db, 'disputes: a dispute linked to the payment and the suspended period',
+      `INSERT INTO payment_disputes (id,provider,"providerDisputeId","invoiceId","amountCents",currency,status,"providerStatus","openedAt","providerUpdatedAt","verifiedAt","suspendedPeriodId","updatedAt") VALUES ('d1','STRIPE','dp_1','i1',1500,'NGN','OPEN','needs_response',now(),now(),now(),'ep1',now())`)
+    await expectErr(db, 'disputes: duplicate (provider, providerDisputeId) rejected',
+      `INSERT INTO payment_disputes (id,provider,"providerDisputeId","invoiceId","amountCents",currency,"providerStatus","openedAt","providerUpdatedAt","verifiedAt","updatedAt") VALUES ('d2','STRIPE','dp_1','i1',1,'NGN','x',now(),now(),now(),now())`, /23505[\s\S]*Key \(provider, "providerDisputeId"\)/)
+    await expectOk(db, 'events: first delivery recorded', `INSERT INTO provider_events (id,provider,"providerEventId","eventType","payloadSha256") VALUES ('e1','STRIPE','evt_1','charge.dispute.created','h')`)
+    await expectErr(db, 'events: duplicate (provider, providerEventId) delivery rejected', `INSERT INTO provider_events (id,provider,"providerEventId","eventType","payloadSha256") VALUES ('e2','STRIPE','evt_1','x','h')`, /23505[\s\S]*Key \(provider, "providerEventId"\)/)
+    await expectOk(db, 'events: same event id under another provider is distinct', `INSERT INTO provider_events (id,provider,"providerEventId","eventType","payloadSha256") VALUES ('e3','PAYSTACK','evt_1','x','h')`)
+
+    // Organization ↔ institution links.
+    await expectOk(db, 'links: a pending link request', `INSERT INTO organization_institution_links (id,"organizationId","productId","productInstitutionId","requestedById","updatedAt") VALUES ('l1','org1','p_lec','inst-A','u_owner',now())`)
+    await expectErr(db, 'links: a second live link for the same product institution is rejected', `INSERT INTO organization_institution_links (id,"organizationId","productId","productInstitutionId","requestedById","updatedAt") VALUES ('l2','org1','p_lec','inst-A','u_owner',now())`, /23505[\s\S]*Key \("productId", "productInstitutionId"\)/)
+    await expectErr(db, 'links: VERIFIED requires verifier, time and method', `UPDATE organization_institution_links SET status='VERIFIED' WHERE id='l1'`, /org_inst_links_verified_chk/)
+    await expectErr(db, 'links: the requester cannot verify their own link (two-party)', `UPDATE organization_institution_links SET status='VERIFIED',"verifiedById"='u_owner',"verifiedAt"=now(),"verificationMethod"='OPERATOR_EVIDENCE' WHERE id='l1'`, /org_inst_links_two_party_chk/)
+    await expectOk(db, 'links: verified by a second party', `UPDATE organization_institution_links SET status='VERIFIED',"verifiedById"='u_staff',"verifiedAt"=now(),"verificationMethod"='OPERATOR_EVIDENCE' WHERE id='l1'`)
+    await expectOk(db, 'links: a link for the same organization in ANOTHER product is separate', `INSERT INTO organization_institution_links (id,"organizationId","productId","productInstitutionId","requestedById","updatedAt") VALUES ('l3','org1','p_sch','inst-Z','u_owner',now())`)
+
+    // Licences.
+    await expectErr(db, 'licences: SEAT_BASED requires a positive capacity', `INSERT INTO institution_licences (id,"linkId","productId","licenceType",status,"startsAt","endsAt","issuedById","updatedAt") VALUES ('lic0','l1','p_lec','SEAT_BASED','ACTIVE',now(),now()+interval '1 year','u_staff',now())`, /institution_licences_seat_model_chk/)
+    await expectErr(db, 'licences: INSTITUTION_WIDE must not carry a capacity', `INSERT INTO institution_licences (id,"linkId","productId","licenceType",status,"startsAt","endsAt","seatCapacity","issuedById","updatedAt") VALUES ('lic0','l1','p_lec','INSTITUTION_WIDE','ACTIVE',now(),now()+interval '1 year',5,'u_staff',now())`, /institution_licences_seat_model_chk/)
+    await expectOk(db, 'licences: a seat-based licence with capacity 2 and an institution-wide licence', `INSERT INTO institution_licences (id,"linkId","productId","licenceType",status,"startsAt","endsAt","seatCapacity","issuedById","updatedAt") VALUES ('licS','l1','p_lec','SEAT_BASED','ACTIVE',now(),now()+interval '1 year',2,'u_staff',now()),('licW','l1','p_lec','INSTITUTION_WIDE','ACTIVE',now(),now()+interval '1 year',NULL,'u_staff',now())`)
+
+    // Seats.
+    await expectOk(db, 'seats: two assignments within capacity', `INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('s1','licS','u_member','u_owner'),('s2','licS','u_member2','u_owner')`)
+    await expectErr(db, 'seats: a third assignment exceeds capacity', `INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('s3','licS','u_member3','u_owner')`, /seat_capacity_exhausted/)
+    await expectOk(db, 'seats: release one seat', `UPDATE licence_seats SET status='RELEASED',"releasedAt"=now(),"releasedById"='u_owner' WHERE id='s2'`)
+    await expectOk(db, 'seats: the released seat can be reassigned', `INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('s5','licS','u_member3','u_owner')`)
+    await expectErr(db, 'seats: cannot assign a seat on an institution-wide licence', `INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('s6','licW','u_member2','u_owner')`, /seat_on_non_seat_licence/)
+    await db.$executeRawUnsafe(`UPDATE institution_licences SET status='SUSPENDED' WHERE id='licS'`)
+    await expectErr(db, 'seats: cannot assign a seat on a suspended licence', `INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('s7','licS','u_member2','u_owner')`, /seat_on_inactive_licence/)
+    await db.$executeRawUnsafe(`UPDATE institution_licences SET status='ACTIVE',"seatCapacity"=5 WHERE id='licS'`)
+    await expectErr(db, 'seats: duplicate active seat for the same member (capacity available) is rejected', `INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('s8','licS','u_member','u_owner')`, /23505[\s\S]*Key \("licenceId", "userId"\)/)
+
+    // Seats under real concurrency: capacity 1, two transactions race for the last seat.
+    await db.$executeRawUnsafe(`INSERT INTO institution_licences (id,"linkId","productId","licenceType",status,"startsAt","endsAt","seatCapacity","issuedById","updatedAt") VALUES ('licC','l1','p_lec','SEAT_BASED','ACTIVE',now(),now()+interval '1 year',1,'u_staff',now())`)
+    const race = (client, seat, user) => client.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`INSERT INTO licence_seats (id,"licenceId","userId","assignedById") VALUES ('${seat}','licC','${user}','u_owner')`)
+      await new Promise((r) => setTimeout(r, 400)) // hold the lock while the other tries
+    }).then(() => 'ok', (e) => (/seat_capacity_exhausted/.test(String(e.message)) ? 'capacity' : `err:${e.message}`))
+    const outcomes = await Promise.all([race(db, 'c1', 'u_member'), race(db2, 'c2', 'u_member2')])
+    const [cnt] = await db.$queryRawUnsafe(`SELECT count(*)::int n FROM licence_seats WHERE "licenceId"='licC' AND status='ACTIVE'`)
+    ;(outcomes.filter((o) => o === 'ok').length === 1 && outcomes.includes('capacity') && cnt.n === 1)
+      ? pass(`seats: concurrent race for the last seat → exactly one wins (${outcomes.join(', ')})`)
+      : fail('seats: concurrent race', `outcomes=${outcomes} active=${cnt.n}`)
+
+    // Trials.
+    await expectErr(db, 'trials: exactly one target (user XOR institution)', `INSERT INTO trial_grants (id,"productId","targetType","userId","linkId","startsAt","endsAt",reason,"authorizedById") VALUES ('t0','p_lec','USER','u_member','l1',now(),now()+interval '7 days','x','u_staff')`, /trial_grants_target_chk/)
+    await expectErr(db, 'trials: longer than the maximum (30 days) is rejected', `INSERT INTO trial_grants (id,"productId","targetType","userId","startsAt","endsAt",reason,"authorizedById") VALUES ('t0','p_lec','USER','u_member',now(),now()+interval '31 days','x','u_staff')`, /trial_grants_max_len_chk/)
+    await expectErr(db, 'trials: a user cannot authorize their own trial', `INSERT INTO trial_grants (id,"productId","targetType","userId","startsAt","endsAt",reason,"authorizedById") VALUES ('t0','p_lec','USER','u_member',now(),now()+interval '7 days','x','u_member')`, /trial_grants_self_chk/)
+    await expectOk(db, 'trials: a centrally authorized 14-day trial', `INSERT INTO trial_grants (id,"productId","targetType","userId","startsAt","endsAt",reason,"authorizedById") VALUES ('t1','p_lec','USER','u_member',now(),now()+interval '14 days','pilot','u_staff')`)
+    await expectErr(db, 'trials: only one active trial per user per product', `INSERT INTO trial_grants (id,"productId","targetType","userId","startsAt","endsAt",reason,"authorizedById") VALUES ('t2','p_lec','USER','u_member',now(),now()+interval '7 days','x','u_staff')`, /23505[\s\S]*Key \("productId", "userId"\)/)
+    await expectOk(db, 'trials: a trial for another product is independent', `INSERT INTO trial_grants (id,"productId","targetType","userId","startsAt","endsAt",reason,"authorizedById") VALUES ('t3','p_sch','USER','u_member',now(),now()+interval '7 days','x','u_staff')`)
+    await expectErr(db, 'trials: extending endsAt in place is impossible (non-renewing)', `UPDATE trial_grants SET "endsAt"="endsAt"+interval '1 day' WHERE id='t1'`, /grant_window_immutable/)
+    await expectErr(db, 'trials: revocation requires actor and time', `UPDATE trial_grants SET status='REVOKED' WHERE id='t1'`, /trial_grants_revoke_chk/)
+    await expectOk(db, 'trials: revoke', `UPDATE trial_grants SET status='REVOKED',"revokedAt"=now(),"revokedById"='u_staff' WHERE id='t1'`)
+    await expectErr(db, 'trials: a revoked trial cannot be reactivated', `UPDATE trial_grants SET status='ACTIVE',"revokedAt"=NULL,"revokedById"=NULL WHERE id='t1'`, /grant_revocation_final/)
+    await expectOk(db, 'trials: an institution-sponsored trial via a verified link', `INSERT INTO trial_grants (id,"productId","targetType","linkId","startsAt","endsAt",reason,"authorizedById") VALUES ('t4','p_lec','INSTITUTION','l1',now(),now()+interval '14 days','x','u_staff')`)
+
+    // Operator grants.
+    await expectErr(db, 'operator: cannot be self-issued', `INSERT INTO operator_grants (id,"userId","productId",reason,"issuedById","startsAt","endsAt") VALUES ('o0','u_staff','p_lec','x','u_staff',now(),now()+interval '30 days')`, /operator_grants_not_self_issued_chk/)
+    await expectErr(db, 'operator: longer than the maximum (90 days) is rejected', `INSERT INTO operator_grants (id,"userId","productId",reason,"issuedById","startsAt","endsAt") VALUES ('o0','u_member','p_lec','x','u_staff',now(),now()+interval '91 days')`, /operator_grants_max_len_chk/)
+    await expectErr(db, 'operator: approver must differ from grantee and issuer', `INSERT INTO operator_grants (id,"userId","productId",reason,"issuedById","approvedById","startsAt","endsAt") VALUES ('o0','u_member','p_lec','x','u_staff','u_staff',now(),now()+interval '30 days')`, /operator_grants_approver_chk/)
+    await expectOk(db, 'operator: an explicit, bounded, two-person grant', `INSERT INTO operator_grants (id,"userId","productId",reason,"issuedById","approvedById","startsAt","endsAt") VALUES ('o1','u_member','p_lec','support rotation','u_staff','u_staff2',now(),now()+interval '30 days')`)
+    await expectErr(db, 'operator: one active grant per user per product', `INSERT INTO operator_grants (id,"userId","productId",reason,"issuedById","startsAt","endsAt") VALUES ('o2','u_member','p_lec','x','u_staff',now(),now()+interval '30 days')`, /23505[\s\S]*Key \("userId", "productId"\)/)
+    await expectErr(db, 'operator: window cannot be extended in place', `UPDATE operator_grants SET "endsAt"="endsAt"+interval '30 days' WHERE id='o1'`, /grant_window_immutable/)
+
+    // Append-only audit.
+    await expectOk(db, 'audit: insert an entitlement change', `INSERT INTO entitlement_changes (id,"productId",source,"sourceId",action,reason,"actorType") VALUES ('a1','p_lec','OPERATOR','o1','granted','support','OPERATOR')`)
+    await expectErr(db, 'audit: UPDATE is blocked', `UPDATE entitlement_changes SET reason='tampered' WHERE id='a1'`, /entitlement_changes_append_only/)
+    await expectErr(db, 'audit: DELETE is blocked', `DELETE FROM entitlement_changes WHERE id='a1'`, /entitlement_changes_append_only/)
+
+    // Schema footprint: only the intended new objects exist besides the baseline.
+    const [tables] = await db.$queryRawUnsafe(`SELECT count(*)::int n FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'`)
+    console.log(`tables in validated schema: ${tables.n} (baseline 32 + 10 new)`)
+    tables.n === 42 ? pass('footprint: exactly 10 new tables') : fail('footprint', `${tables.n} tables`)
+  } catch (e) {
+    fail('validation run', redact(e.message))
+  } finally {
+    await db?.$disconnect(); await db2?.$disconnect()
+    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${NAME}" WITH (FORCE)`)
+    const [left] = await admin.$queryRawUnsafe(`SELECT count(*)::int n FROM pg_database WHERE datname = '${NAME}'`)
+    console.log(`dropped throwaway database ${NAME}: ${left.n === 0 ? 'confirmed' : 'NOT DROPPED'}`)
+    await admin.$disconnect()
+    for (const [s, n] of results) console.log(`${s}  ${n}`)
+    const failed = results.filter(([s]) => s === 'FAIL').length
+    console.log(`\n${results.length - failed} passed, ${failed} failed`)
+    process.exit(failed ? 1 : 0)
+  }
+})()

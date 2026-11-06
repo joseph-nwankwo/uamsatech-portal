@@ -9,7 +9,13 @@ export function isPaystackConfigured(): boolean {
 
 export async function initializePaystackTransaction(params: {
   email: string;
+  /** Amount in the currency's minor unit (kobo, cents, pesewas…). */
   amountKobo: number;
+  /**
+   * ISO currency of the plan. Required: without it Paystack charges the
+   * merchant's default currency, so a USD price would be charged in NGN.
+   */
+  currency: string;
   reference: string;
   callbackUrl: string;
   metadata?: Record<string, unknown>;
@@ -30,6 +36,7 @@ export async function initializePaystackTransaction(params: {
     body: JSON.stringify({
       email: params.email,
       amount: params.amountKobo,
+      currency: params.currency,
       reference: params.reference,
       callback_url: params.callbackUrl,
       metadata: params.metadata,
@@ -41,6 +48,42 @@ export async function initializePaystackTransaction(params: {
   }
 
   return res.json();
+}
+
+export type PaystackTransaction = {
+  status: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  paid_at?: string | null;
+  paidAt?: string | null;
+};
+
+/**
+ * Authenticated lookup of one transaction (GET /transaction/verify/:reference).
+ * Throws on transport errors or an unexpected body, so a webhook relying on
+ * it fails (and is retried by Paystack) rather than recording guessed data.
+ */
+export async function verifyPaystackTransaction(
+  reference: string
+): Promise<PaystackTransaction> {
+  if (!env.PAYSTACK_SECRET_KEY) {
+    throw new Error("Paystack is not configured (PAYSTACK_SECRET_KEY unset)");
+  }
+
+  const res = await fetch(
+    `${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`,
+    { headers: { Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`Paystack verify failed: ${res.status}`);
+  }
+
+  const body = (await res.json()) as { status?: unknown; data?: unknown };
+  if (body.status !== true || typeof body.data !== "object" || body.data === null) {
+    throw new Error("Paystack verify returned an unexpected body");
+  }
+  return body.data as PaystackTransaction;
 }
 
 export function verifyPaystackWebhookSignature(

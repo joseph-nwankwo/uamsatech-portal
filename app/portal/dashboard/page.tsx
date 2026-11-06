@@ -25,6 +25,7 @@ import { H1, H3 } from "@/components/ui/typography";
 import { getPortalContext } from "@/lib/portal/context";
 import { db } from "@/lib/db";
 import { products as marketingProducts } from "@/lib/site-config";
+import { productLaunchHref } from "@/lib/portal/launch-links";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -164,7 +165,7 @@ export default async function PortalDashboardPage() {
             return canLaunch ? (
               <a
                 key={product.slug}
-                href={`https://${product.subdomain}`}
+                href={productLaunchHref(product)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={className}

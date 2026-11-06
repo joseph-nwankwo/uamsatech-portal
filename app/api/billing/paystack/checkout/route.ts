@@ -58,6 +58,7 @@ export async function POST(request: Request) {
     amountKobo: coupon
       ? applyCouponDiscount(productPlan.priceCents, coupon)
       : productPlan.priceCents,
+    currency: productPlan.currency,
     reference,
     callbackUrl: `${env.NEXT_PUBLIC_APP_URL}/portal/billing?checkout=success`,
     metadata: {

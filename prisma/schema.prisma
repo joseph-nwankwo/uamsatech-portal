@@ -38,6 +38,21 @@ model User {
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
 
+  linksRequested   OrganizationInstitutionLink[] @relation("LinkRequestedBy")
+  linksVerified    OrganizationInstitutionLink[] @relation("LinkVerifiedBy")
+  linksRevoked     OrganizationInstitutionLink[] @relation("LinkRevokedBy")
+  licencesIssued   InstitutionLicence[]          @relation("LicenceIssuedBy")
+  seats            LicenceSeat[]                 @relation("SeatHolder")
+  seatsAssigned    LicenceSeat[]                 @relation("SeatAssignedBy")
+  seatsReleased    LicenceSeat[]                 @relation("SeatReleasedBy")
+  trials           TrialGrant[]                  @relation("TrialUser")
+  trialsAuthorized TrialGrant[]                  @relation("TrialAuthorizedBy")
+  trialsRevoked    TrialGrant[]                  @relation("TrialRevokedBy")
+  operatorGrants   OperatorGrant[]               @relation("OperatorGrantee")
+  operatorIssued   OperatorGrant[]               @relation("OperatorIssuedBy")
+  operatorApproved OperatorGrant[]               @relation("OperatorApprovedBy")
+  operatorRevoked  OperatorGrant[]               @relation("OperatorRevokedBy")
+
   @@map("users")
 }
 
@@ -55,6 +70,8 @@ model Organization {
   analyticsEvents AnalyticsEvent[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  institutionLinks OrganizationInstitutionLink[]
 
   @@map("organizations")
 }
@@ -132,6 +149,12 @@ model Product {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
+  entitlementPeriods EntitlementPeriod[]
+  institutionLinks   OrganizationInstitutionLink[]
+  licences           InstitutionLicence[]
+  trialGrants        TrialGrant[]
+  operatorGrants     OperatorGrant[]
+
   @@map("products")
 }
 
@@ -192,6 +215,9 @@ model ProductPlan {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
+  invoices Invoice[]
+  licences InstitutionLicence[]
+
   @@unique([productId, planId])
   @@map("product_plans")
 }
@@ -223,6 +249,9 @@ model Subscription {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
+  periods  EntitlementPeriod[]
+  licences InstitutionLicence[]
+
   @@unique([organizationId, productId])
   @@unique([userId, productId])
   @@map("subscriptions")
@@ -245,13 +274,26 @@ model Invoice {
   currency          String          @default("NGN")
   status            InvoiceStatus   @default(OPEN)
   provider          BillingProvider
-  providerInvoiceId String?         @unique
+  providerInvoiceId String?
   hostedInvoiceUrl  String?
   periodStart       DateTime
   periodEnd         DateTime
   paidAt            DateTime?
   createdAt         DateTime        @default(now())
 
+  // AS-P0-SECURITY-007: purchase-time plan snapshot + ledger relations
+  productPlanId      String?
+  productPlan        ProductPlan?        @relation(fields: [productPlanId], references: [id], onDelete: SetNull)
+  planInterval       PlanInterval?
+  priceCentsSnapshot Int?
+  couponIdSnapshot   String?
+  verifiedAt         DateTime?
+  periods            EntitlementPeriod[]
+  refunds            PaymentRefund[]
+  disputes           PaymentDispute[]
+  providerEvents     ProviderEvent[]
+
+  @@unique([provider, providerInvoiceId])
   @@map("invoices")
 }
 
@@ -261,20 +303,20 @@ enum DiscountType {
 }
 
 model Coupon {
-  id               String       @id @default(cuid())
-  code             String       @unique
+  id               String         @id @default(cuid())
+  code             String         @unique
   discountType     DiscountType
   discountValue    Int
   currency         String?
   maxRedemptions   Int?
-  timesRedeemed    Int          @default(0)
-  validFrom        DateTime     @default(now())
+  timesRedeemed    Int            @default(0)
+  validFrom        DateTime       @default(now())
   validUntil       DateTime?
   stripeCouponId   String?
   paystackCouponId String?
-  isActive         Boolean      @default(true)
+  isActive         Boolean        @default(true)
   subscriptions    Subscription[]
-  createdAt        DateTime     @default(now())
+  createdAt        DateTime       @default(now())
 
   @@map("coupons")
 }
@@ -587,4 +629,365 @@ model AnalyticsEvent {
 
   @@index([name, createdAt])
   @@map("analytics_events")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AS-P0-SECURITY-007 — additive central billing & entitlement models.
+// Migration: prisma/migrations/20261105090100_as_p0_007_central_billing_foundation
+// (constraints Prisma cannot express live in that migration's SQL).
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum EntitlementPeriodState {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  PENDING_REVIEW
+}
+
+enum RefundStatus {
+  REQUESTED
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  REVERSED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  WON
+  LOST
+  CLOSED
+  UNKNOWN
+}
+
+enum ProviderEventVerification {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+enum ProviderEventProcessing {
+  RECEIVED
+  PROCESSING
+  APPLIED
+  IGNORED
+  DUPLICATE
+  FAILED
+}
+
+enum InstitutionLinkStatus {
+  PENDING
+  VERIFIED
+  REVOKED
+}
+
+enum InstitutionLinkVerification {
+  PRODUCT_OWNER_CHALLENGE
+  OPERATOR_EVIDENCE
+}
+
+enum LicenceType {
+  INSTITUTION_WIDE
+  SEAT_BASED
+}
+
+enum LicenceStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  EXPIRED
+}
+
+enum SeatStatus {
+  ACTIVE
+  RELEASED
+}
+
+enum GrantStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum TrialTarget {
+  USER
+  INSTITUTION
+}
+
+enum EntitlementSource {
+  SUBSCRIPTION
+  LICENCE
+  TRIAL
+  OPERATOR
+}
+
+enum EntitlementActorType {
+  PROVIDER
+  USER
+  OPERATOR
+  SYSTEM
+}
+
+/// Every provider webhook delivery (verified or not). Idempotency key is provider-scoped.
+model ProviderEvent {
+  id              String                    @id @default(cuid())
+  provider        BillingProvider
+  providerEventId String
+  eventType       String
+  verification    ProviderEventVerification @default(UNVERIFIED)
+  processing      ProviderEventProcessing   @default(RECEIVED)
+  attempts        Int                       @default(0)
+  errorClass      String?
+  payloadSha256   String
+  facts           Json?
+  invoiceId       String?
+  invoice         Invoice?                  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  refundId        String?
+  refund          PaymentRefund?            @relation(fields: [refundId], references: [id], onDelete: SetNull)
+  disputeId       String?
+  dispute         PaymentDispute?           @relation(fields: [disputeId], references: [id], onDelete: SetNull)
+  receivedAt      DateTime                  @default(now())
+  verifiedAt      DateTime?
+  processedAt     DateTime?
+
+  @@unique([provider, providerEventId])
+  @@index([processing, receivedAt])
+  @@map("provider_events")
+}
+
+/// Payment-to-entitlement ledger: the period one verified payment purchased for one subscription.
+model EntitlementPeriod {
+  id                    String                 @id @default(cuid())
+  subscriptionId        String
+  subscription          Subscription           @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  invoiceId             String
+  invoice               Invoice                @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  productId             String
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  paidAt                DateTime
+  interval              PlanInterval?
+  providerPeriodStart   DateTime?
+  providerPeriodEnd     DateTime?
+  periodStart           DateTime
+  periodEnd             DateTime
+  state                 EntitlementPeriodState @default(ACTIVE)
+  stateReason           String?
+  stateSourceRefundId   String?
+  stateSourceDisputeId  String?
+  productPlanIdSnapshot String?
+  amountCents           Int
+  currency              String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  suspendingDisputes    PaymentDispute[]
+
+  @@unique([invoiceId, subscriptionId])
+  @@index([subscriptionId, paidAt, invoiceId])
+  @@map("entitlement_periods")
+}
+
+model PaymentRefund {
+  id                String          @id @default(cuid())
+  provider          BillingProvider
+  providerRefundId  String
+  invoiceId         String
+  invoice           Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amountCents       Int
+  currency          String
+  status            RefundStatus    @default(REQUESTED)
+  providerStatus    String?
+  requestedAt       DateTime?
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureClass      String?
+  providerUpdatedAt DateTime
+  verifiedAt        DateTime?
+  history           Json            @default("[]")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  events            ProviderEvent[]
+
+  @@unique([provider, providerRefundId])
+  @@index([invoiceId, status])
+  @@map("payment_refunds")
+}
+
+model PaymentDispute {
+  id                  String             @id @default(cuid())
+  provider            BillingProvider
+  providerDisputeId   String
+  invoiceId           String
+  invoice             Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amountCents         Int
+  currency            String
+  status              DisputeStatus      @default(OPEN)
+  providerStatus      String
+  openedAt            DateTime
+  resolvedAt          DateTime?
+  evidenceDueBy       DateTime?
+  evidenceSubmittedAt DateTime?
+  providerUpdatedAt   DateTime
+  verifiedAt          DateTime
+  suspendedPeriodId   String?
+  suspendedPeriod     EntitlementPeriod? @relation(fields: [suspendedPeriodId], references: [id], onDelete: SetNull)
+  history             Json               @default("[]")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  events              ProviderEvent[]
+
+  @@unique([provider, providerDisputeId])
+  @@index([invoiceId])
+  @@map("payment_disputes")
+}
+
+/// Explicit, verified link between a portal organization and ONE product's institution.
+model OrganizationInstitutionLink {
+  id                   String                       @id @default(cuid())
+  organizationId       String
+  organization         Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productId            String
+  product              Product                      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productInstitutionId String
+  status               InstitutionLinkStatus        @default(PENDING)
+  verificationMethod   InstitutionLinkVerification?
+  challengeSha256      String?
+  challengeExpiresAt   DateTime?
+  requestedById        String
+  requestedBy          User                         @relation("LinkRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  verifiedById         String?
+  verifiedBy           User?                        @relation("LinkVerifiedBy", fields: [verifiedById], references: [id], onDelete: Restrict)
+  verifiedAt           DateTime?
+  revokedAt            DateTime?
+  revokedById          String?
+  revokedBy            User?                        @relation("LinkRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+  revokeReason         String?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  licences             InstitutionLicence[]
+  trials               TrialGrant[]
+
+  @@index([organizationId, productId])
+  @@index([productId, productInstitutionId])
+  @@map("organization_institution_links")
+}
+
+model InstitutionLicence {
+  id                   String                      @id @default(cuid())
+  linkId               String
+  link                 OrganizationInstitutionLink @relation(fields: [linkId], references: [id], onDelete: Restrict)
+  productId            String
+  product              Product                     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  licenceType          LicenceType
+  status               LicenceStatus               @default(PENDING)
+  startsAt             DateTime
+  endsAt               DateTime
+  productPlanId        String?
+  productPlan          ProductPlan?                @relation(fields: [productPlanId], references: [id], onDelete: Restrict)
+  seatCapacity         Int?
+  sourceSubscriptionId String?
+  sourceSubscription   Subscription?               @relation(fields: [sourceSubscriptionId], references: [id], onDelete: Restrict)
+  issuedById           String
+  issuedBy             User                        @relation("LicenceIssuedBy", fields: [issuedById], references: [id], onDelete: Restrict)
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  seats                LicenceSeat[]
+
+  @@index([linkId, productId, status])
+  @@map("institution_licences")
+}
+
+model LicenceSeat {
+  id            String             @id @default(cuid())
+  licenceId     String
+  licence       InstitutionLicence @relation(fields: [licenceId], references: [id], onDelete: Restrict)
+  userId        String
+  user          User               @relation("SeatHolder", fields: [userId], references: [id], onDelete: Restrict)
+  status        SeatStatus         @default(ACTIVE)
+  assignedAt    DateTime           @default(now())
+  assignedById  String
+  assignedBy    User               @relation("SeatAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  releasedAt    DateTime?
+  releasedById  String?
+  releasedBy    User?              @relation("SeatReleasedBy", fields: [releasedById], references: [id], onDelete: Restrict)
+  releaseReason String?
+
+  @@index([licenceId, status])
+  @@index([userId])
+  @@map("licence_seats")
+}
+
+model TrialGrant {
+  id             String                       @id @default(cuid())
+  productId      String
+  product        Product                      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  targetType     TrialTarget
+  userId         String?
+  user           User?                        @relation("TrialUser", fields: [userId], references: [id], onDelete: Restrict)
+  linkId         String?
+  link           OrganizationInstitutionLink? @relation(fields: [linkId], references: [id], onDelete: Restrict)
+  status         GrantStatus                  @default(ACTIVE)
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String
+  authorizedById String
+  authorizedBy   User                         @relation("TrialAuthorizedBy", fields: [authorizedById], references: [id], onDelete: Restrict)
+  revokedAt      DateTime?
+  revokedById    String?
+  revokedBy      User?                        @relation("TrialRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+  revokeReason   String?
+  createdAt      DateTime                     @default(now())
+
+  @@index([productId, userId])
+  @@index([productId, linkId])
+  @@map("trial_grants")
+}
+
+model OperatorGrant {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation("OperatorGrantee", fields: [userId], references: [id], onDelete: Restrict)
+  productId    String
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  status       GrantStatus @default(ACTIVE)
+  reason       String
+  issuedById   String
+  issuedBy     User        @relation("OperatorIssuedBy", fields: [issuedById], references: [id], onDelete: Restrict)
+  /// Two-person rule (mandatory): the approver differs from the grantee and the issuer (CHECK in SQL).
+  approvedById String
+  approvedBy   User        @relation("OperatorApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  startsAt     DateTime
+  endsAt       DateTime
+  revokedAt    DateTime?
+  revokedById  String?
+  revokedBy    User?       @relation("OperatorRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+  revokeReason String?
+  createdAt    DateTime    @default(now())
+
+  @@index([userId, productId, status])
+  @@map("operator_grants")
+}
+
+/// Append-only entitlement audit. No FKs, so history survives deletions; UPDATE/DELETE blocked by trigger.
+model EntitlementChange {
+  id                    String               @id @default(cuid())
+  productId             String
+  subjectUserId         String?
+  subjectOrganizationId String?
+  source                EntitlementSource
+  sourceId              String
+  action                String
+  reason                String
+  actorType             EntitlementActorType
+  actorId               String?
+  before                Json?
+  after                 Json?
+  providerEventId       String?
+  correlationId         String?
+  createdAt             DateTime             @default(now())
+
+  @@index([productId, createdAt])
+  @@index([source, sourceId])
+  @@map("entitlement_changes")
 }

@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { trackEvent } from "@/lib/analytics/track";
-import type { BillingProvider, Subscription } from "@prisma/client";
+import type { BillingProvider, Prisma, Subscription } from "@prisma/client";
+
+/** The global client or an interactive-transaction client. */
+export type DbClient = typeof db | Prisma.TransactionClient;
 
 export type BillTo =
   | { type: "organization"; organizationId: string }
@@ -18,7 +21,7 @@ export async function upsertSubscriptionFromCheckout(params: {
   provider: BillingProvider;
   providerCustomerId: string;
   providerSubscriptionId: string;
-}): Promise<Subscription> {
+}, client: DbClient = db, options: { emitEvent?: boolean } = {}): Promise<Subscription> {
   const { billTo, productId, productPlanId, couponId, provider } = params;
 
   const where =
@@ -31,14 +34,14 @@ export async function upsertSubscriptionFromCheckout(params: {
         }
       : { userId_productId: { userId: billTo.userId, productId } };
 
-  const existing = await db.subscription.findUnique({ where });
+  const existing = await client.subscription.findUnique({ where });
 
   const identity =
     billTo.type === "organization"
       ? { organizationId: billTo.organizationId }
       : { userId: billTo.userId };
 
-  const subscription = await db.subscription.upsert({
+  const subscription = await client.subscription.upsert({
     where,
     create: {
       ...identity,
@@ -60,13 +63,13 @@ export async function upsertSubscriptionFromCheckout(params: {
   });
 
   if (!existing && couponId) {
-    await db.coupon.update({
+    await client.coupon.update({
       where: { id: couponId },
       data: { timesRedeemed: { increment: 1 } },
     });
   }
 
-  await trackEvent("subscription_created", {
+  if (options.emitEvent !== false) await trackEvent("subscription_created", {
     organizationId:
       billTo.type === "organization" ? billTo.organizationId : undefined,
     metadata: { productId, provider, billTo: billTo.type },
@@ -75,34 +78,8 @@ export async function upsertSubscriptionFromCheckout(params: {
   return subscription;
 }
 
-export async function createInvoiceForSubscription(
-  subscription: Subscription,
-  params: {
-    amountCents: number;
-    currency: string;
-    provider: BillingProvider;
-    providerInvoiceId: string;
-    hostedInvoiceUrl?: string;
-  }
-) {
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  return db.invoice.create({
-    data: {
-      subscriptionId: subscription.id,
-      organizationId: subscription.organizationId,
-      userId: subscription.userId,
-      amountCents: params.amountCents,
-      currency: params.currency,
-      status: "PAID",
-      provider: params.provider,
-      providerInvoiceId: params.providerInvoiceId,
-      hostedInvoiceUrl: params.hostedInvoiceUrl ?? null,
-      periodStart: now,
-      periodEnd,
-      paidAt: now,
-    },
-  });
-}
+// createInvoiceForSubscription was removed in AS-P0-SECURITY-004: it stamped
+// every invoice with periodStart = paidAt = "now" and periodEnd = now + 1
+// month regardless of the plan or the provider's payment time. Paystack and
+// Flutterwave payments are now recorded by recordVerifiedOneTimePayment
+// (lib/billing/one-time-payment.ts) from provider-confirmed data.

@@ -1,0 +1,133 @@
+-- AS-P0-SECURITY-007 PROPOSAL — constraints Prisma cannot express.
+-- Runs after the Prisma-generated additive.sql, in the same migration.
+-- Design artifact: NOT applied to any shared or production database.
+
+-- ── Ledger integrity ──────────────────────────────────────────────────────
+ALTER TABLE "entitlement_periods"
+  ADD CONSTRAINT "entitlement_periods_window_chk" CHECK ("periodEnd" > "periodStart"),
+  ADD CONSTRAINT "entitlement_periods_amount_chk" CHECK ("amountCents" >= 0);
+
+ALTER TABLE "payment_refunds"
+  ADD CONSTRAINT "payment_refunds_amount_chk" CHECK ("amountCents" > 0);
+
+ALTER TABLE "payment_disputes"
+  ADD CONSTRAINT "payment_disputes_amount_chk" CHECK ("amountCents" > 0);
+
+-- ── Organization ↔ institution link: one live link per product institution,
+--    and one live link per (organization, product). Revoked links are history.
+CREATE UNIQUE INDEX "org_inst_links_live_product_institution_key"
+  ON "organization_institution_links" ("productId", "productInstitutionId")
+  WHERE "status" <> 'REVOKED';
+CREATE UNIQUE INDEX "org_inst_links_live_org_product_key"
+  ON "organization_institution_links" ("organizationId", "productId")
+  WHERE "status" <> 'REVOKED';
+ALTER TABLE "organization_institution_links"
+  ADD CONSTRAINT "org_inst_links_verified_chk" CHECK (
+    "status" <> 'VERIFIED'
+    OR ("verifiedById" IS NOT NULL AND "verifiedAt" IS NOT NULL AND "verificationMethod" IS NOT NULL)
+  ),
+  ADD CONSTRAINT "org_inst_links_two_party_chk" CHECK ("verifiedById" IS NULL OR "verifiedById" <> "requestedById");
+
+-- ── Licences ─────────────────────────────────────────────────────────────
+ALTER TABLE "institution_licences"
+  ADD CONSTRAINT "institution_licences_window_chk" CHECK ("endsAt" > "startsAt"),
+  ADD CONSTRAINT "institution_licences_seat_model_chk" CHECK (
+    ("licenceType" = 'SEAT_BASED'       AND "seatCapacity" IS NOT NULL AND "seatCapacity" > 0)
+    OR ("licenceType" = 'INSTITUTION_WIDE' AND "seatCapacity" IS NULL)
+  );
+
+-- A member holds at most one ACTIVE seat per licence; released seats are history.
+CREATE UNIQUE INDEX "licence_seats_active_member_key"
+  ON "licence_seats" ("licenceId", "userId") WHERE "status" = 'ACTIVE';
+ALTER TABLE "licence_seats"
+  ADD CONSTRAINT "licence_seats_release_chk" CHECK (
+    ("status" = 'ACTIVE' AND "releasedAt" IS NULL) OR ("status" = 'RELEASED' AND "releasedAt" IS NOT NULL)
+  );
+
+-- Database-level seat ceiling (defense in depth behind the application's
+-- SELECT … FOR UPDATE on the licence row): locks the licence, refuses a new
+-- ACTIVE seat on a licence that is not an ACTIVE seat-based licence or is full.
+CREATE OR REPLACE FUNCTION "licence_seats_enforce_capacity"() RETURNS trigger AS $$
+DECLARE
+  lic RECORD;
+  used integer;
+BEGIN
+  IF NEW."status" <> 'ACTIVE' THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND OLD."status" = 'ACTIVE' THEN RETURN NEW; END IF;
+  SELECT "licenceType", "status", "seatCapacity" INTO lic
+    FROM "institution_licences" WHERE "id" = NEW."licenceId" FOR UPDATE;
+  IF lic."licenceType" <> 'SEAT_BASED' THEN
+    RAISE EXCEPTION 'seat_on_non_seat_licence' USING ERRCODE = 'check_violation';
+  END IF;
+  IF lic."status" <> 'ACTIVE' THEN
+    RAISE EXCEPTION 'seat_on_inactive_licence' USING ERRCODE = 'check_violation';
+  END IF;
+  SELECT count(*) INTO used FROM "licence_seats"
+    WHERE "licenceId" = NEW."licenceId" AND "status" = 'ACTIVE' AND "id" <> NEW."id";
+  IF used >= lic."seatCapacity" THEN
+    RAISE EXCEPTION 'seat_capacity_exhausted' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+CREATE TRIGGER "licence_seats_capacity_trg"
+  BEFORE INSERT OR UPDATE OF "status" ON "licence_seats"
+  FOR EACH ROW EXECUTE FUNCTION "licence_seats_enforce_capacity"();
+
+-- ── Trials: centrally authorized, bounded, single target, non-renewing ──
+ALTER TABLE "trial_grants"
+  ADD CONSTRAINT "trial_grants_target_chk" CHECK (
+    ("targetType" = 'USER'        AND "userId" IS NOT NULL AND "linkId" IS NULL)
+    OR ("targetType" = 'INSTITUTION' AND "linkId" IS NOT NULL AND "userId" IS NULL)
+  ),
+  ADD CONSTRAINT "trial_grants_window_chk" CHECK ("endsAt" > "startsAt"),
+  -- Maximum trial length: 30 days (REQUIRES APPROVAL — report §13).
+  ADD CONSTRAINT "trial_grants_max_len_chk" CHECK ("endsAt" - "startsAt" <= interval '30 days'),
+  ADD CONSTRAINT "trial_grants_self_chk" CHECK ("userId" IS NULL OR "userId" <> "authorizedById"),
+  ADD CONSTRAINT "trial_grants_revoke_chk" CHECK (
+    ("status" = 'ACTIVE' AND "revokedAt" IS NULL) OR ("status" = 'REVOKED' AND "revokedAt" IS NOT NULL AND "revokedById" IS NOT NULL)
+  );
+CREATE UNIQUE INDEX "trial_grants_one_active_user_key"
+  ON "trial_grants" ("productId", "userId") WHERE "status" = 'ACTIVE' AND "userId" IS NOT NULL;
+CREATE UNIQUE INDEX "trial_grants_one_active_link_key"
+  ON "trial_grants" ("productId", "linkId") WHERE "status" = 'ACTIVE' AND "linkId" IS NOT NULL;
+
+-- ── Operator grants: explicit, bounded, never self-issued ────────────────
+ALTER TABLE "operator_grants"
+  ADD CONSTRAINT "operator_grants_window_chk" CHECK ("endsAt" > "startsAt"),
+  -- Maximum operator grant: 90 days, renewal = a new grant (REQUIRES APPROVAL — report §12).
+  ADD CONSTRAINT "operator_grants_max_len_chk" CHECK ("endsAt" - "startsAt" <= interval '90 days'),
+  ADD CONSTRAINT "operator_grants_not_self_issued_chk" CHECK ("issuedById" <> "userId"),
+  ADD CONSTRAINT "operator_grants_approver_chk" CHECK (
+    "approvedById" IS NULL OR ("approvedById" <> "userId" AND "approvedById" <> "issuedById")
+  ),
+  ADD CONSTRAINT "operator_grants_revoke_chk" CHECK (
+    ("status" = 'ACTIVE' AND "revokedAt" IS NULL) OR ("status" = 'REVOKED' AND "revokedAt" IS NOT NULL AND "revokedById" IS NOT NULL)
+  );
+CREATE UNIQUE INDEX "operator_grants_one_active_key"
+  ON "operator_grants" ("userId", "productId") WHERE "status" = 'ACTIVE';
+
+-- Grant windows are immutable: extending a trial or operator grant requires a
+-- NEW explicit authorization row. Only revocation fields may change.
+CREATE OR REPLACE FUNCTION "grants_window_immutable"() RETURNS trigger AS $$
+BEGIN
+  IF NEW."startsAt" IS DISTINCT FROM OLD."startsAt" OR NEW."endsAt" IS DISTINCT FROM OLD."endsAt"
+     OR NEW."productId" IS DISTINCT FROM OLD."productId" THEN
+    RAISE EXCEPTION 'grant_window_immutable' USING ERRCODE = 'check_violation';
+  END IF;
+  IF OLD."status" = 'REVOKED' AND NEW."status" <> 'REVOKED' THEN
+    RAISE EXCEPTION 'grant_revocation_final' USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+CREATE TRIGGER "trial_grants_immutable_trg" BEFORE UPDATE ON "trial_grants"
+  FOR EACH ROW EXECUTE FUNCTION "grants_window_immutable"();
+CREATE TRIGGER "operator_grants_immutable_trg" BEFORE UPDATE ON "operator_grants"
+  FOR EACH ROW EXECUTE FUNCTION "grants_window_immutable"();
+
+-- ── Append-only entitlement audit ───────────────────────────────────────
+CREATE OR REPLACE FUNCTION "entitlement_changes_append_only"() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'entitlement_changes_append_only' USING ERRCODE = 'insufficient_privilege';
+END $$ LANGUAGE plpgsql;
+CREATE TRIGGER "entitlement_changes_append_only_trg" BEFORE UPDATE OR DELETE ON "entitlement_changes"
+  FOR EACH ROW EXECUTE FUNCTION "entitlement_changes_append_only"();

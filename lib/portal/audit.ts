@@ -27,7 +27,9 @@ export type AuditAction =
   | "support_ticket.message_sent"
   | "bug_report.created"
   | "feature_request.created"
-  | "feature_request.voted";
+  | "feature_request.voted"
+  | "product.launch_granted"
+  | "product.launch_denied";
 
 export async function logActivity(
   userId: string,

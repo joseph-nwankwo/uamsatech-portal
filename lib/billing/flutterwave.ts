@@ -52,10 +52,13 @@ export async function verifyFlutterwaveTransaction(
 ): Promise<{
   status: string;
   data: {
+    id: number;
     status: string;
     amount: number;
     currency: string;
     tx_ref: string;
+    /** Transaction timestamp (ISO-8601). The only payment time the verify endpoint returns. */
+    created_at?: string | null;
     customer: { email: string };
     meta?: Record<string, string>;
   };

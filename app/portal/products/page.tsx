@@ -7,6 +7,7 @@ import { H1, Muted } from "@/components/ui/typography";
 import { getPortalContext } from "@/lib/portal/context";
 import { db } from "@/lib/db";
 import { products as marketingProducts } from "@/lib/site-config";
+import { productLaunchHref } from "@/lib/portal/launch-links";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -92,11 +93,7 @@ export default async function PortalProductsPage() {
                     size="sm"
                     className="bg-navy hover:bg-navy/90 text-white"
                     render={
-                      <a
-                        href={`https://${product.subdomain}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
+                      <a href={productLaunchHref(product)}>
                         Launch
                         <ExternalLink className="size-3.5" />
                       </a>

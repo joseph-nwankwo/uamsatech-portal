@@ -1,0 +1,71 @@
+// Builds the PROPOSED schema in the scratchpad from the repository schema (read-only).
+// Usage: node build.cjs <repo schema.prisma> <additions.prisma> <out proposed.prisma>
+const fs = require('fs')
+const [src, add, out] = process.argv.slice(2)
+let s = fs.readFileSync(src, 'utf8').replace(/\r\n/g, '\n')
+
+function rep(a, b) {
+  const n = s.split(a).length - 1
+  if (n !== 1) { console.error(`match count ${n}: ${a}`); process.exit(1) }
+  s = s.replace(a, () => b)
+}
+// Insert `insert` inside model `name`, immediately before line `anchor`.
+function inModel(name, anchor, insert) {
+  const start = s.indexOf(`model ${name} {`)
+  if (start < 0) { console.error(`no model ${name}`); process.exit(1) }
+  const end = s.indexOf('\n}', start)
+  const body = s.slice(start, end)
+  const i = body.indexOf(anchor)
+  if (i < 0) { console.error(`no anchor "${anchor}" in ${name}`); process.exit(1) }
+  s = s.slice(0, start) + body.slice(0, i) + insert + body.slice(i) + s.slice(end)
+}
+
+// D7: provider-scoped invoice id — drop the global unique, add a composite unique.
+rep('  providerInvoiceId String?         @unique\n', '  providerInvoiceId String?\n')
+inModel('Invoice', '  @@map("invoices")', [
+  '  // AS-P0-SECURITY-007: purchase-time plan snapshot + ledger relations',
+  '  productPlanId      String?',
+  '  productPlan        ProductPlan?        @relation(fields: [productPlanId], references: [id], onDelete: SetNull)',
+  '  planInterval       PlanInterval?',
+  '  priceCentsSnapshot Int?',
+  '  couponIdSnapshot   String?',
+  '  verifiedAt         DateTime?',
+  '  periods            EntitlementPeriod[]',
+  '  refunds            PaymentRefund[]',
+  '  disputes           PaymentDispute[]',
+  '  providerEvents     ProviderEvent[]',
+  '',
+  '  @@unique([provider, providerInvoiceId])',
+  '',
+].join('\n'))
+inModel('Subscription', '  @@unique([organizationId, productId])', '  periods  EntitlementPeriod[]\n  licences InstitutionLicence[]\n\n')
+inModel('ProductPlan', '  @@unique([productId, planId])', '  invoices Invoice[]\n  licences InstitutionLicence[]\n\n')
+inModel('Product', '  @@map("products")', [
+  '  entitlementPeriods EntitlementPeriod[]',
+  '  institutionLinks   OrganizationInstitutionLink[]',
+  '  licences           InstitutionLicence[]',
+  '  trialGrants        TrialGrant[]',
+  '  operatorGrants     OperatorGrant[]',
+  '', '',
+].join('\n'))
+inModel('Organization', '  @@map("organizations")', '  institutionLinks OrganizationInstitutionLink[]\n\n')
+inModel('User', '  @@map("users")', [
+  '  linksRequested   OrganizationInstitutionLink[] @relation("LinkRequestedBy")',
+  '  linksVerified    OrganizationInstitutionLink[] @relation("LinkVerifiedBy")',
+  '  linksRevoked     OrganizationInstitutionLink[] @relation("LinkRevokedBy")',
+  '  licencesIssued   InstitutionLicence[]          @relation("LicenceIssuedBy")',
+  '  seats            LicenceSeat[]                 @relation("SeatHolder")',
+  '  seatsAssigned    LicenceSeat[]                 @relation("SeatAssignedBy")',
+  '  seatsReleased    LicenceSeat[]                 @relation("SeatReleasedBy")',
+  '  trials           TrialGrant[]                  @relation("TrialUser")',
+  '  trialsAuthorized TrialGrant[]                  @relation("TrialAuthorizedBy")',
+  '  trialsRevoked    TrialGrant[]                  @relation("TrialRevokedBy")',
+  '  operatorGrants   OperatorGrant[]               @relation("OperatorGrantee")',
+  '  operatorIssued   OperatorGrant[]               @relation("OperatorIssuedBy")',
+  '  operatorApproved OperatorGrant[]               @relation("OperatorApprovedBy")',
+  '  operatorRevoked  OperatorGrant[]               @relation("OperatorRevokedBy")',
+  '', '',
+].join('\n'))
+s += fs.readFileSync(add, 'utf8')
+fs.writeFileSync(out, s)
+console.log(`wrote ${out}`)

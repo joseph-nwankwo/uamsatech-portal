@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(npm run *)",
+      "Bash(disown)",
+      "Bash(curl -s -o /dev/null -w \"health: %{http_code}\\\\n\" http://localhost:3000/api/health)",
+      "Bash(vercel env *)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" https://uamsatech.com/api/health/ready)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" https://uamsatech.vercel.app/api/health/ready)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(curl -s -o /dev/null -w \"local dev health: %{http_code}\\\\n\" http://localhost:3000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"local portal/products: %{http_code}\\\\n\" http://localhost:3000/portal/products)"
+    ]
+  }
+}
