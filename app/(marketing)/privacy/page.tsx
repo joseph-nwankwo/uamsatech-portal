@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           <p className="text-muted-foreground mt-2">
             We collect account information (name, email, institution), usage
             data, and content you create within {siteConfig.name} products, such
-            as UAMSA, LecturerCraft, ScholarCraft, Records, and StudyFlow.
+            as UAMSA, LectureSuite, ScholarSuite, Records, and StudyFlow.
           </p>
         </section>
         <section>

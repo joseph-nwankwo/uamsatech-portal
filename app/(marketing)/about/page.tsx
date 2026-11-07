@@ -27,8 +27,8 @@ export default function AboutPage() {
           Building the operating system for higher education
         </h1>
         <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg">
-          UAMSATech is the parent platform behind UAMSA, LecturerCraft,
-          ScholarCraft, Records, and StudyFlow &mdash; one account, one billing
+          UAMSATech is the parent platform behind UAMSA, LectureSuite,
+          ScholarSuite, Records, and StudyFlow &mdash; one account, one billing
           relationship, five products built for academia.
         </p>
       </section>

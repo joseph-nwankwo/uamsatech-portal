@@ -15,7 +15,7 @@ export const apiDocs: DocPage[] = [
       },
       {
         type: "p",
-        text: "The one exception is /api/v1/usage, authenticated with a Bearer API key instead of a cookie. It exists specifically so the other products in the ecosystem (LecturerCraft, ScholarCraft, and so on, once they're built) can report metered usage back to the organization that owns them.",
+        text: "The one exception is /api/v1/usage, authenticated with a Bearer API key instead of a cookie. It exists specifically so the other products in the ecosystem (LectureSuite, ScholarSuite, and so on, once they're built) can report metered usage back to the organization that owns them.",
       },
       {
         type: "callout",
@@ -43,14 +43,14 @@ export const apiDocs: DocPage[] = [
         code: `curl -X POST https://uamsatech.com/api/portal/api-keys \\
   -H "Content-Type: application/json" \\
   --cookie "access_token=..." \\
-  -d '{"name": "LecturerCraft integration"}'`,
+  -d '{"name": "LectureSuite integration"}'`,
       },
       {
         type: "code",
         language: "json",
         caption: "Response — the fullKey field only ever appears here",
         code: `{
-  "apiKey": { "id": "...", "name": "LecturerCraft integration", "keyPrefix": "uamsa_live_l7Xn…", "createdAt": "..." },
+  "apiKey": { "id": "...", "name": "LectureSuite integration", "keyPrefix": "uamsa_live_l7Xn…", "createdAt": "..." },
   "fullKey": "uamsa_live_l7XndS-Kv3ZO0H1wTgIK7mltbUihAiRscbFjjtQWtyE"
 }`,
       },
@@ -64,7 +64,7 @@ export const apiDocs: DocPage[] = [
         code: `curl -X POST https://uamsatech.com/api/v1/usage \\
   -H "Authorization: Bearer uamsa_live_l7XndS-Kv3ZO0H1wTgIK7mltbUihAiRscbFjjtQWtyE" \\
   -H "Content-Type: application/json" \\
-  -d '{"productSlug": "lecturercraft", "metric": "lecture_notes_generated", "quantity": 1}'`,
+  -d '{"productSlug": "LectureSuite", "metric": "lecture_notes_generated", "quantity": 1}'`,
       },
       {
         type: "callout",
@@ -91,7 +91,7 @@ export const apiDocs: DocPage[] = [
         language: "json",
         caption: "Body",
         code: `{
-  "productSlug": "lecturercraft",
+  "productSlug": "LectureSuite",
   "metric": "lecture_notes_generated",
   "quantity": 5
 }`,
@@ -99,7 +99,7 @@ export const apiDocs: DocPage[] = [
       {
         type: "list",
         items: [
-          "productSlug — must match an existing product (uamsa, lecturercraft, scholarcraft, records, studyflow).",
+          "productSlug — must match an existing product (uamsa, LectureSuite, ScholarSuite, records, studyflow).",
           "metric — a short string identifying what was used, 1–60 characters. Not a fixed enum; each product defines its own metric names.",
           "quantity — a positive integer.",
         ],

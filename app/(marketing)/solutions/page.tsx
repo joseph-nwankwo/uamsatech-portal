@@ -29,14 +29,14 @@ const solutions = [
     audience: "Lecturers",
     description:
       "Cut hours of prep time with AI-generated notes, lesson plans, assignments, and exams.",
-    products: ["LecturerCraft"],
+    products: ["LectureSuite"],
   },
   {
     icon: Users,
     audience: "Students & Researchers",
     description:
       "Write theses and papers faster with AI research assistance, and stay on track with an AI study planner.",
-    products: ["ScholarCraft", "StudyFlow"],
+    products: ["ScholarSuite", "StudyFlow"],
   },
   {
     icon: ClipboardList,

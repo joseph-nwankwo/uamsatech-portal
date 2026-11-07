@@ -9,12 +9,12 @@ const faqItems = [
   {
     question: "Do I need one account for every product?",
     answer:
-      "Yes. A single UAMSATech account, secured through central authentication at auth.uamsatech.com, gives you single sign-on access to every product you're subscribed to — UAMSA, LecturerCraft, ScholarCraft, Records, and StudyFlow.",
+      "Yes. A single UAMSATech account, secured through central authentication at auth.uamsatech.com, gives you single sign-on access to every product you're subscribed to — UAMSA, LectureSuite, ScholarSuite, Records, and StudyFlow.",
   },
   {
     question: "Can institutions use products individually?",
     answer:
-      "Every product works standalone. UAMSA is institution-only, while LecturerCraft, ScholarCraft, StudyFlow, and Records can be used individually or by an institution, and all integrate with UAMSA when you use more than one.",
+      "Every product works standalone. UAMSA is institution-only, while LectureSuite, ScholarSuite, StudyFlow, and Records can be used individually or by an institution, and all integrate with UAMSA when you use more than one.",
   },
   {
     question: "Is my institution's data secure?",

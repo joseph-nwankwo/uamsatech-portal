@@ -59,8 +59,8 @@ export const products: Product[] = [
     isLive: true,
   },
   {
-    slug: "lecturercraft",
-    name: "LecturerCraft",
+    slug: "lecturesuite",
+    name: "LectureSuite",
     tagline: "AI-powered teaching platform",
     description:
       "Give every lecturer an AI teaching assistant for lecture notes, assessments, and course materials.",
@@ -95,14 +95,14 @@ export const products: Product[] = [
       },
     ],
     deployment: ["Individual", "Institution", "Integrated with UAMSA"],
-    subdomain: "lecturercraft.uamsatech.com",
+    subdomain: "lecturesuite.uamsatech.com",
     pricingPlans: ["individual", "institution"],
     accent: "blue",
     isLive: false,
   },
   {
-    slug: "scholarcraft",
-    name: "ScholarCraft",
+    slug: "scholarsuite",
+    name: "ScholarSuite",
     tagline: "AI-powered academic writing platform",
     description:
       "Research and writing support for students and researchers, from proposal to publication.",
@@ -134,7 +134,7 @@ export const products: Product[] = [
       },
     ],
     deployment: ["Individual", "Institution", "Integrated with UAMSA"],
-    subdomain: "scholarcraft.uamsatech.com",
+    subdomain: "scholarsuite.uamsatech.com",
     pricingPlans: ["individual", "institution"],
     accent: "gold",
     isLive: false,

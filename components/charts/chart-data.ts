@@ -8,10 +8,10 @@ export const signupsData = [
 ];
 
 export const adoptionData = [
-  { month: "Jan", lecturercraft: 40, scholarcraft: 24 },
-  { month: "Feb", lecturercraft: 58, scholarcraft: 31 },
-  { month: "Mar", lecturercraft: 72, scholarcraft: 45 },
-  { month: "Apr", lecturercraft: 91, scholarcraft: 58 },
-  { month: "May", lecturercraft: 118, scholarcraft: 76 },
-  { month: "Jun", lecturercraft: 142, scholarcraft: 97 },
+  { month: "Jan", LectureSuite: 40, ScholarSuite: 24 },
+  { month: "Feb", LectureSuite: 58, ScholarSuite: 31 },
+  { month: "Mar", LectureSuite: 72, ScholarSuite: 45 },
+  { month: "Apr", LectureSuite: 91, ScholarSuite: 58 },
+  { month: "May", LectureSuite: 118, ScholarSuite: 76 },
+  { month: "Jun", LectureSuite: 142, ScholarSuite: 97 },
 ];

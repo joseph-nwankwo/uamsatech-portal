@@ -27,7 +27,7 @@ const plans = [
     name: "Individual",
     price: "From ₦0",
     description:
-      "For individual lecturers, students, and researchers getting started with LecturerCraft, ScholarCraft, or StudyFlow.",
+      "For individual lecturers, students, and researchers getting started with LectureSuite, ScholarSuite, or StudyFlow.",
     features: [
       "Access to one product",
       "Single sign-on account",
@@ -77,7 +77,7 @@ const faqItems = [
   {
     question: "Can I mix individual and institutional plans?",
     answer:
-      "Yes. For example, a university can deploy UAMSA institution-wide while individual lecturers separately subscribe to LecturerCraft, all under single sign-on.",
+      "Yes. For example, a university can deploy UAMSA institution-wide while individual lecturers separately subscribe to LectureSuite, all under single sign-on.",
   },
   {
     question: "What payment methods do you support?",
@@ -87,7 +87,7 @@ const faqItems = [
   {
     question: "Is there a free trial?",
     answer:
-      "Individual plans for LecturerCraft, ScholarCraft, and StudyFlow include a free tier to get started. Institutional plans include a guided pilot before full rollout.",
+      "Individual plans for LectureSuite, ScholarSuite, and StudyFlow include a free tier to get started. Institutional plans include a guided pilot before full rollout.",
   },
 ];
 

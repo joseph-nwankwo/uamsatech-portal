@@ -160,7 +160,7 @@ export default function DesignSystemPage() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>LecturerCraft</CardTitle>
+              <CardTitle>LectureSuite</CardTitle>
               <CardDescription>AI-powered teaching platform</CardDescription>
             </CardHeader>
             <CardContent>
@@ -252,7 +252,7 @@ export default function DesignSystemPage() {
               </TableRow>
               <TableRow>
                 <TableCell className="text-foreground font-medium">
-                  LecturerCraft
+                  LectureSuite
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   Lecturers
@@ -380,16 +380,16 @@ export default function DesignSystemPage() {
               <thead>
                 <tr className="border-border border-b">
                   <th className="py-1.5 font-medium">Month</th>
-                  <th className="py-1.5 font-medium">LecturerCraft</th>
-                  <th className="py-1.5 font-medium">ScholarCraft</th>
+                  <th className="py-1.5 font-medium">LectureSuite</th>
+                  <th className="py-1.5 font-medium">ScholarSuite</th>
                 </tr>
               </thead>
               <tbody>
                 {adoptionData.map((row) => (
                   <tr key={row.month} className="border-border/60 border-b">
                     <td className="py-1.5">{row.month}</td>
-                    <td className="py-1.5">{row.lecturercraft}</td>
-                    <td className="py-1.5">{row.scholarcraft}</td>
+                    <td className="py-1.5">{row.LectureSuite}</td>
+                    <td className="py-1.5">{row.ScholarSuite}</td>
                   </tr>
                 ))}
               </tbody>

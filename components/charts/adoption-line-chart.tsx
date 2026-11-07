@@ -12,12 +12,12 @@ import {
 import { adoptionData } from "@/components/charts/chart-data";
 
 const chartConfig = {
-  lecturercraft: {
-    label: "LecturerCraft",
+  LectureSuite: {
+    label: "LectureSuite",
     color: "var(--chart-1)",
   },
-  scholarcraft: {
-    label: "ScholarCraft",
+  ScholarSuite: {
+    label: "ScholarSuite",
     color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
@@ -36,18 +36,18 @@ export function AdoptionLineChart() {
         <ChartTooltip content={<ChartTooltipContent />} />
         <ChartLegend content={<ChartLegendContent />} />
         <Line
-          dataKey="lecturercraft"
+          dataKey="LectureSuite"
           type="monotone"
-          stroke="var(--color-lecturercraft)"
+          stroke="var(--color-LectureSuite)"
           strokeWidth={2}
-          dot={{ r: 4, fill: "var(--color-lecturercraft)", strokeWidth: 0 }}
+          dot={{ r: 4, fill: "var(--color-LectureSuite)", strokeWidth: 0 }}
         />
         <Line
-          dataKey="scholarcraft"
+          dataKey="ScholarSuite"
           type="monotone"
-          stroke="var(--color-scholarcraft)"
+          stroke="var(--color-ScholarSuite)"
           strokeWidth={2}
-          dot={{ r: 4, fill: "var(--color-scholarcraft)", strokeWidth: 0 }}
+          dot={{ r: 4, fill: "var(--color-ScholarSuite)", strokeWidth: 0 }}
         />
       </LineChart>
     </ChartContainer>

@@ -61,16 +61,16 @@ const faqByProduct: Record<string, { question: string; answer: string }[]> = {
         "No. UAMSA is deployed at the institution level only, as a full university ERP and SIS.",
     },
   ],
-  lecturercraft: [
+  LectureSuite: [
     {
-      question: "Can I use LecturerCraft without my university subscribing?",
+      question: "Can I use LectureSuite without my university subscribing?",
       answer:
-        "Yes. LecturerCraft is available to individual lecturers, and also works as an institution-wide deployment integrated with UAMSA.",
+        "Yes. LectureSuite is available to individual lecturers, and also works as an institution-wide deployment integrated with UAMSA.",
     },
   ],
-  scholarcraft: [
+  ScholarSuite: [
     {
-      question: "Who is ScholarCraft for?",
+      question: "Who is ScholarSuite for?",
       answer:
         "Students and researchers writing theses, dissertations, proposals, and journal articles, as well as universities offering it institution-wide.",
     },
@@ -97,12 +97,12 @@ const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
     { icon: UserCog, label: "Student management" },
     { icon: TrendingUp, label: "Analytics" },
   ],
-  lecturercraft: [
+  LectureSuite: [
     { icon: NotebookPen, label: "Lecture notes" },
     { icon: HelpCircle, label: "Question generator" },
     { icon: Bot, label: "AI teaching assistant" },
   ],
-  scholarcraft: [
+  ScholarSuite: [
     { icon: FileText, label: "Thesis writing" },
     { icon: Quote, label: "Citation management" },
     { icon: Search, label: "Research assistant" },

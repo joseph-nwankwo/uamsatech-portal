@@ -6,7 +6,7 @@ import { CtaSection } from "@/features/marketing/components/cta-section";
 export const metadata: Metadata = {
   title: "Products",
   description:
-    "Explore UAMSA, LecturerCraft, ScholarCraft, Records, and StudyFlow — the UAMSATech product ecosystem for universities, lecturers, researchers, and students.",
+    "Explore UAMSA, LectureSuite, ScholarSuite, Records, and StudyFlow — the UAMSATech product ecosystem for universities, lecturers, researchers, and students.",
   alternates: { canonical: "/products" },
 };
 

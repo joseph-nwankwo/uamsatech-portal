@@ -5,7 +5,7 @@ import { ContactForm } from "@/features/marketing/components/contact-form";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with the UAMSATech team about UAMSA, LecturerCraft, ScholarCraft, Records, or StudyFlow.",
+    "Get in touch with the UAMSATech team about UAMSA, LectureSuite, ScholarSuite, Records, or StudyFlow.",
   alternates: { canonical: "/contact" },
 };
 
@@ -18,7 +18,7 @@ const channels = [
   {
     icon: MessageSquare,
     title: "For individuals",
-    description: "Questions about LecturerCraft, ScholarCraft, or StudyFlow.",
+    description: "Questions about LectureSuite, ScholarSuite, or StudyFlow.",
   },
   {
     icon: Mail,

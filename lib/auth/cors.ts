@@ -1,5 +1,5 @@
 /**
- * Origin allowlist for cross-subdomain SSO checks (e.g. lecturercraft.uamsatech.com
+ * Origin allowlist for cross-subdomain SSO checks (e.g. LectureSuite.uamsatech.com
  * calling GET /api/auth/me on uamsatech.com to read the shared session cookie).
  * `Access-Control-Allow-Origin` must echo a specific origin (not `*`) when
  * credentials are involved, so every allowed origin has to be checked explicitly.
