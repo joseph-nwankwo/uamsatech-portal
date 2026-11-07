@@ -61,14 +61,14 @@ const faqByProduct: Record<string, { question: string; answer: string }[]> = {
         "No. UAMSA is deployed at the institution level only, as a full university ERP and SIS.",
     },
   ],
-  LectureSuite: [
+  lecturesuite: [
     {
       question: "Can I use LectureSuite without my university subscribing?",
       answer:
         "Yes. LectureSuite is available to individual lecturers, and also works as an institution-wide deployment integrated with UAMSA.",
     },
   ],
-  ScholarSuite: [
+  scholarsuite: [
     {
       question: "Who is ScholarSuite for?",
       answer:
@@ -97,12 +97,12 @@ const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
     { icon: UserCog, label: "Student management" },
     { icon: TrendingUp, label: "Analytics" },
   ],
-  LectureSuite: [
+  lecturesuite: [
     { icon: NotebookPen, label: "Lecture notes" },
     { icon: HelpCircle, label: "Question generator" },
     { icon: Bot, label: "AI teaching assistant" },
   ],
-  ScholarSuite: [
+  scholarsuite: [
     { icon: FileText, label: "Thesis writing" },
     { icon: Quote, label: "Citation management" },
     { icon: Search, label: "Research assistant" },
