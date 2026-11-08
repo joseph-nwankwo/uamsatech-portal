@@ -1,15 +1,13 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "npx prisma migrate deploy && npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm ci",
   "regions": ["iad1"],
   "headers": [
     {
       "source": "/api/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
     }
   ],
   "rewrites": [
