@@ -7,7 +7,10 @@ import { logger } from "@/lib/logger";
 import { logActivity } from "@/lib/portal/audit";
 import { resolveProductEntitlement } from "@/lib/portal/entitlement";
 
-type LaunchTarget = { target: "lecturesuite" | "scholarsuite"; ssoUrl: string };
+type LaunchTarget = {
+  target: "lecturesuite" | "scholarsuite" | "researchsuite";
+  ssoUrl: string;
+};
 
 /**
  * Allowlist: portal product slug → canonical product identifier (the token's
@@ -26,11 +29,16 @@ const SCHOLARSUITE: LaunchTarget = {
   target: "scholarsuite",
   ssoUrl: env.SCHOLARSUITE_SSO_URL,
 };
+const RESEARCHSUITE: LaunchTarget = {
+  target: "researchsuite",
+  ssoUrl: env.RESEARCHSUITE_SSO_URL,
+};
 const PRODUCT_MAP: ReadonlyMap<string, LaunchTarget> = new Map([
   ["lecturercraft", LECTURESUITE],
   ["lecturesuite", LECTURESUITE],
   ["scholarcraft", SCHOLARSUITE],
   ["scholarsuite", SCHOLARSUITE],
+  ["researchsuite", RESEARCHSUITE],
 ]);
 
 /** Token-bearing redirects must never be cached or leak via Referer. */
@@ -76,7 +84,10 @@ export async function GET(
   // Entitlement is enforced here, server-side, before any token exists. The
   // product SSO endpoints only accept tokens signed with CRAFT_LAUNCH_SECRET,
   // so no token means no product account is provisioned.
-  const entitlement = await resolveProductEntitlement(session.sub, mapping.target);
+  const entitlement = await resolveProductEntitlement(
+    session.sub,
+    mapping.target
+  );
 
   if (!entitlement.granted) {
     try {
@@ -86,7 +97,9 @@ export async function GET(
         reason: entitlement.reason,
       });
     } catch (err) {
-      logger.error("launch audit (denied) failed", { error: (err as Error).message });
+      logger.error("launch audit (denied) failed", {
+        error: (err as Error).message,
+      });
     }
     return noStore(
       NextResponse.json(
@@ -110,9 +123,14 @@ export async function GET(
       entitlement.organizationId ?? undefined
     );
   } catch (err) {
-    logger.error("launch audit (granted) failed", { error: (err as Error).message });
+    logger.error("launch audit (granted) failed", {
+      error: (err as Error).message,
+    });
     return noStore(
-      NextResponse.json({ error: "Launch temporarily unavailable." }, { status: 503 })
+      NextResponse.json(
+        { error: "Launch temporarily unavailable." },
+        { status: 503 }
+      )
     );
   }
 

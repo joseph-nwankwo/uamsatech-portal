@@ -5,7 +5,8 @@ import { env } from "@/lib/env";
 export const LAUNCH_TOKEN_TTL_SECONDS = 5 * 60; // 5 minutes
 
 /** Canonical product identifiers that may receive a launch token. */
-export type LaunchTargetProduct = "lecturesuite" | "scholarsuite";
+export type LaunchTargetProduct =
+  "lecturesuite" | "scholarsuite" | "researchsuite";
 
 /**
  * Signs a short-lived SSO launch token for a Craft Suite product.

@@ -25,6 +25,10 @@ const baseEnvSchema = z.object({
     .string()
     .url()
     .default("http://localhost:4001/api/auth/sso"),
+  RESEARCHSUITE_SSO_URL: z
+    .string()
+    .url()
+    .default("http://localhost:4002/api/auth/sso"),
 
   // Server-to-server entitlement verification (AS-P0-SECURITY-006A).
   // One credential PER PRODUCT, presented by that product's backend as a
@@ -33,11 +37,17 @@ const baseEnvSchema = z.object({
   // Must differ from CRAFT_LAUNCH_SECRET, AUTH_JWT_SECRET and each other.
   LECTURESUITE_ENTITLEMENT_SERVICE_SECRET: z
     .string()
-    .min(32, "LECTURESUITE_ENTITLEMENT_SERVICE_SECRET must be at least 32 characters")
+    .min(
+      32,
+      "LECTURESUITE_ENTITLEMENT_SERVICE_SECRET must be at least 32 characters"
+    )
     .optional(),
   SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET: z
     .string()
-    .min(32, "SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET must be at least 32 characters")
+    .min(
+      32,
+      "SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET must be at least 32 characters"
+    )
     .optional(),
   COOKIE_DOMAIN: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
@@ -101,8 +111,14 @@ export const envSchema = baseEnvSchema
     // Each entitlement service credential is single-purpose.
     const reserved = [cfg.CRAFT_LAUNCH_SECRET, cfg.AUTH_JWT_SECRET];
     const services = [
-      ["LECTURESUITE_ENTITLEMENT_SERVICE_SECRET", cfg.LECTURESUITE_ENTITLEMENT_SERVICE_SECRET],
-      ["SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET", cfg.SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET],
+      [
+        "LECTURESUITE_ENTITLEMENT_SERVICE_SECRET",
+        cfg.LECTURESUITE_ENTITLEMENT_SERVICE_SECRET,
+      ],
+      [
+        "SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET",
+        cfg.SCHOLARSUITE_ENTITLEMENT_SERVICE_SECRET,
+      ],
     ] as const;
     for (const [name, value] of services) {
       if (value && reserved.includes(value)) {
