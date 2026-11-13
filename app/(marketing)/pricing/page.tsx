@@ -43,7 +43,7 @@ const plans = [
     description:
       "For universities deploying UAMSA, or any product institution-wide with full integration.",
     features: [
-      "All five products available",
+      "All six products available",
       "Institution-wide deployment",
       "Single sign-on across products",
       "Dedicated onboarding & support",

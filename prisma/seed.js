@@ -175,6 +175,43 @@ const PRODUCT_PLANS = [
       "Third-party SIS integration",
     ],
   },
+  {
+    productSlug: "researchsuite",
+    planKey: "free",
+    interval: "MONTHLY",
+    priceCents: 0,
+    features: ["Core writing wizard", "Single sign-on account"],
+  },
+  {
+    productSlug: "researchsuite",
+    planKey: "starter",
+    interval: "MONTHLY",
+    priceCents: 1200,
+    features: ["Everything in Free", "Literature search", "Chapter guides"],
+  },
+  {
+    productSlug: "researchsuite",
+    planKey: "professional",
+    interval: "MONTHLY",
+    priceCents: 3500,
+    features: [
+      "Everything in Starter",
+      "Paraphraser and summarizer",
+      "Similarity checker",
+    ],
+  },
+  {
+    productSlug: "researchsuite",
+    planKey: "enterprise",
+    interval: "YEARLY",
+    priceCents: 39900,
+    isStartingPrice: true,
+    features: [
+      "Institution-wide deployment",
+      "Dedicated onboarding",
+      "Single sign-on across products",
+    ],
+  },
 ];
 
 const FEATURE_FLAGS = [
@@ -198,6 +235,7 @@ const PRODUCTS = [
   { slug: "scholarcraft", name: "ScholarCraft" },
   { slug: "records", name: "Records" },
   { slug: "studyflow", name: "StudyFlow" },
+  { slug: "researchsuite", name: "ResearchSuite" },
 ];
 
 // Institutional bylines, not fabricated individual people — the blog is

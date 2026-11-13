@@ -15,7 +15,7 @@ export default function ProductsPage() {
     <>
       <section className="mx-auto max-w-4xl px-4 pt-24 pb-4 text-center sm:px-6 lg:px-8">
         <h1 className="text-foreground text-4xl font-semibold tracking-tight sm:text-5xl">
-          One ecosystem, five products
+          One ecosystem, six products
         </h1>
         <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg">
           Every product is built to stand alone, and to work seamlessly together

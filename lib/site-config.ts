@@ -140,6 +140,47 @@ export const products: Product[] = [
     isLive: false,
   },
   {
+    slug: "researchsuite",
+    name: "ResearchSuite",
+    tagline: "AI-powered thesis and research writing platform",
+    description:
+      "Guided thesis, proposal, and journal-article writing for students and researchers, from topic to a submission-ready Word document.",
+    audience: ["Students", "Researchers", "Universities"],
+    features: [
+      "Thesis & Project Wizard",
+      "Proposals",
+      "Journal & Conference Papers",
+      "Literature Search",
+      "Chapter Guides",
+      "Paraphraser",
+      "Summarizer",
+      "Similarity Checker",
+      "Word Export",
+    ],
+    benefits: [
+      {
+        title: "From topic to formatted draft",
+        description:
+          "A stage-by-stage wizard builds each chapter, then compiles the whole document with a title page in a submission-ready Word format.",
+      },
+      {
+        title: "Grounded in real sources",
+        description:
+          "Literature search draws on CrossRef and Semantic Scholar, and AI suggestions are clearly marked for checking before you cite them.",
+      },
+      {
+        title: "Writing tools beside the draft",
+        description:
+          "Paraphrasing, summarising, and a similarity check in the same place as the thesis, instead of copying text between separate tools.",
+      },
+    ],
+    deployment: ["Individual", "Institution"],
+    subdomain: "researchsuite.uamsatech.com",
+    pricingPlans: ["individual", "institution"],
+    accent: "navy",
+    isLive: true,
+  },
+  {
     slug: "records",
     name: "Records",
     tagline: "Academic Records Management Platform",

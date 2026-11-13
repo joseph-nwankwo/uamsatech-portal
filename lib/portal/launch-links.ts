@@ -15,13 +15,17 @@ export const ENTITLEMENT_LAUNCH_SLUGS = [
   "lecturesuite",
   "scholarcraft",
   "scholarsuite",
+  "researchsuite",
 ] as const;
 
 export function requiresEntitlementLaunch(slug: string): boolean {
   return (ENTITLEMENT_LAUNCH_SLUGS as readonly string[]).includes(slug);
 }
 
-export function productLaunchHref(product: { slug: string; subdomain: string }): string {
+export function productLaunchHref(product: {
+  slug: string;
+  subdomain: string;
+}): string {
   return requiresEntitlementLaunch(product.slug)
     ? `/api/portal/launch/${encodeURIComponent(product.slug)}`
     : `https://${product.subdomain}`;

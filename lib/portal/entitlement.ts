@@ -28,6 +28,7 @@ import type { LaunchTargetProduct } from "@/lib/auth/launch-jwt";
 const CATALOG_SLUGS: Record<LaunchTargetProduct, readonly string[]> = {
   lecturesuite: ["lecturercraft", "lecturesuite"],
   scholarsuite: ["scholarcraft", "scholarsuite"],
+  researchsuite: ["researchsuite"],
 };
 
 export type DenialReason =
@@ -65,8 +66,10 @@ export function evaluateSubscription(
     case "ACTIVE":
       // Covers scheduled cancellation too (cancelAtPeriodEnd): access lasts
       // exactly until the paid-through date, never beyond it.
-      if (!sub.currentPeriodEnd) return { ok: false, reason: "period_end_unknown" };
-      if (sub.currentPeriodEnd.getTime() <= now.getTime()) return { ok: false, reason: "expired" };
+      if (!sub.currentPeriodEnd)
+        return { ok: false, reason: "period_end_unknown" };
+      if (sub.currentPeriodEnd.getTime() <= now.getTime())
+        return { ok: false, reason: "expired" };
       return { ok: true };
     case "TRIALING":
       return { ok: false, reason: "trial_not_authorized" };
@@ -92,10 +95,7 @@ export async function resolveProductEntitlement(
   const rows = await db.subscription.findMany({
     where: {
       product: { slug: { in: [...CATALOG_SLUGS[target]] } },
-      OR: [
-        { userId },
-        { organization: { memberships: { some: { userId } } } },
-      ],
+      OR: [{ userId }, { organization: { memberships: { some: { userId } } } }],
     },
     select: {
       id: true,
@@ -110,7 +110,9 @@ export async function resolveProductEntitlement(
   if (rows.length === 0) return { granted: false, reason: "no_subscription" };
 
   const individual = rows.filter((r) => r.userId === userId);
-  const institutional = rows.filter((r) => r.userId !== userId && r.organizationId);
+  const institutional = rows.filter(
+    (r) => r.userId !== userId && r.organizationId
+  );
 
   let firstDenial: DenialReason | null = null;
   for (const [source, list] of [
