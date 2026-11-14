@@ -75,6 +75,13 @@ const faqByProduct: Record<string, { question: string; answer: string }[]> = {
         "Students and researchers writing theses, dissertations, proposals, and journal articles, as well as universities offering it institution-wide.",
     },
   ],
+  researchsuite: [
+    {
+      question: "How is ResearchSuite different from ScholarSuite?",
+      answer:
+        "ResearchSuite guides one thesis, proposal, or journal article stage by stage and compiles it into a submission-ready Word document, with literature search, paraphrasing, summarising, and a similarity check alongside.",
+    },
+  ],
   records: [
     {
       question: "Can Records work with our current student information system?",
@@ -106,6 +113,11 @@ const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
     { icon: FileText, label: "Thesis writing" },
     { icon: Quote, label: "Citation management" },
     { icon: Search, label: "Research assistant" },
+  ],
+  researchsuite: [
+    { icon: FileText, label: "Thesis wizard" },
+    { icon: Search, label: "Literature search" },
+    { icon: FileCheck, label: "Similarity checker" },
   ],
   records: [
     { icon: FileCheck, label: "Transcript generator" },
