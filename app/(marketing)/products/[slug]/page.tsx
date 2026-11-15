@@ -11,7 +11,8 @@ import {
   HelpCircle,
   Bot,
   FileText,
-  Quote,
+  BookOpen,
+  ShieldCheck,
   Search,
   FileCheck,
   QrCode,
@@ -72,7 +73,12 @@ const faqByProduct: Record<string, { question: string; answer: string }[]> = {
     {
       question: "Who is ScholarSuite for?",
       answer:
-        "Students and researchers writing theses, dissertations, proposals, and journal articles, as well as universities offering it institution-wide.",
+        "Students at universities, polytechnics, and colleges who want one place to plan their studies, revise, check their work, and write their thesis. Universities can also offer it to all their students.",
+    },
+    {
+      question: "How is ScholarSuite different from ResearchSuite?",
+      answer:
+        "ScholarSuite is an everyday study companion: planner, GPA, study tools, plagiarism and AI checks, Class Connect, and a Thesis Workspace for drafting. ResearchSuite is a dedicated thesis and journal-writing platform that guides one document stage by stage and exports it as a submission-ready Word file.",
     },
   ],
   researchsuite: [
@@ -110,9 +116,9 @@ const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
     { icon: Bot, label: "AI teaching assistant" },
   ],
   scholarsuite: [
-    { icon: FileText, label: "Thesis writing" },
-    { icon: Quote, label: "Citation management" },
-    { icon: Search, label: "Research assistant" },
+    { icon: Calendar, label: "Study planner" },
+    { icon: BookOpen, label: "Study tools" },
+    { icon: ShieldCheck, label: "Plagiarism & AI check" },
   ],
   researchsuite: [
     { icon: FileText, label: "Thesis wizard" },

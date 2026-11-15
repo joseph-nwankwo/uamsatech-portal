@@ -103,34 +103,37 @@ export const products: Product[] = [
   {
     slug: "scholarsuite",
     name: "ScholarSuite",
-    tagline: "AI-powered academic writing platform",
+    tagline: "AI-powered study companion for students",
     description:
-      "Research and writing support for students and researchers, from proposal to publication.",
-    audience: ["Students", "Researchers", "Universities"],
+      "Plan your studies and revision, set goals, track your GPA and assignments, learn with an AI tutor, turn your notes into flashcards and quizzes, check your work before you submit, draft your thesis, and join your lecturers' classes, all in one place.",
+    audience: ["Students", "Universities"],
     features: [
-      "Thesis Writing",
-      "Dissertation",
-      "Literature Review",
-      "Citation Management",
-      "Research Assistant",
-      "Proposal Generator",
-      "Journal Writing",
+      "Study Planner & Timetable",
+      "Revision Planner",
+      "Goal Tracking",
+      "Assignment Tracker",
+      "AI Tutor",
+      "Flashcards, Summaries & Quizzes",
+      "GPA Calculator",
+      "Plagiarism & AI Check",
+      "Thesis Workspace",
+      "Class Connect",
     ],
     benefits: [
       {
-        title: "Proposal to publication, faster",
+        title: "Your whole semester in one place",
         description:
-          "Structured support at each stage of academic writing, instead of starting each stage from scratch.",
+          "Tasks, deadlines, timetable, and GPA live together, instead of in separate apps and spreadsheets.",
       },
       {
-        title: "Citations handled, not chased",
+        title: "Revise from your own notes",
         description:
-          "Built-in citation management instead of manually formatting references before every deadline.",
+          "Upload lecture notes and get flashcards, summaries, and practice quizzes pitched at your level of study.",
       },
       {
-        title: "Built for the whole research process",
+        title: "Connected to your lecturers",
         description:
-          "Proposal, literature review, and journal writing in one place, not scattered across separate tools.",
+          "Join a class from LectureSuite with a code to see announcements, materials, and assignments, and submit your work.",
       },
     ],
     deployment: ["Individual", "Institution", "Integrated with UAMSA"],

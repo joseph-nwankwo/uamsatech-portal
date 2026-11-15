@@ -51,6 +51,20 @@ function Button({
   ...props
 }: ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & { loading?: boolean }) {
+  const content = loading ? (
+    <>
+      <Loader2Icon className="animate-spin" />
+      {children}
+    </>
+  ) : (
+    children
+  );
+
+  // Only pass `children` when there is something to render. With
+  // `render={<Link href="/x">Label</Link>}` the label lives on the render element.
+  // In production builds that element can reach Base UI as a lazy RSC reference,
+  // whose props Base UI cannot read; an always-present `children` (even empty)
+  // then overwrote the label, rendering an empty <a href="/x"></a>.
   return (
     <ButtonPrimitive
       data-slot="button"
@@ -58,10 +72,10 @@ function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
-    >
-      {loading && <Loader2Icon className="animate-spin" />}
-      {children}
-    </ButtonPrimitive>
+      {...(content !== undefined && content !== null
+        ? { children: content }
+        : {})}
+    />
   );
 }
 
