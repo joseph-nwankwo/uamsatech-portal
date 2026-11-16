@@ -99,7 +99,7 @@ export const apiDocs: DocPage[] = [
       {
         type: "list",
         items: [
-          "productSlug — must match an existing product (uamsa, LectureSuite, ScholarSuite, records, studyflow).",
+          "productSlug — must match an existing product (uamsa, LectureSuite, ScholarSuite, researchsuite, records).",
           "metric — a short string identifying what was used, 1–60 characters. Not a fixed enum; each product defines its own metric names.",
           "quantity — a positive integer.",
         ],

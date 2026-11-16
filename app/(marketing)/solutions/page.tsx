@@ -36,7 +36,7 @@ const solutions = [
     audience: "Students & Researchers",
     description:
       "Write theses and papers faster with AI research assistance, and stay on track with an AI study planner.",
-    products: ["ScholarSuite", "StudyFlow"],
+    products: ["ScholarSuite", "ResearchSuite"],
   },
   {
     icon: ClipboardList,

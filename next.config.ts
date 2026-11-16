@@ -34,6 +34,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: buildSecurityHeaders(isDev) }];
   },
+  // StudyFlow was retired and folded into ScholarSuite (which now has its study
+  // planner, AI tutor, goal tracking, revision planner, and assignment tracker).
+  async redirects() {
+    return [
+      {
+        source: "/products/studyflow",
+        destination: "/products/scholarsuite",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

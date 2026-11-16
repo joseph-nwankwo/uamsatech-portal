@@ -15,7 +15,7 @@ export function CtaSection() {
         </h2>
         <p className="relative mx-auto mt-4 max-w-xl text-lg text-white/70">
           Talk to our team about UAMSA, or get started with LectureSuite,
-          ScholarSuite, StudyFlow, or Records today.
+          ScholarSuite, ResearchSuite, or Records today.
         </p>
         <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button

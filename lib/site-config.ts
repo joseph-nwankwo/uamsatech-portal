@@ -226,43 +226,9 @@ export const products: Product[] = [
     accent: "navy",
     isLive: false,
   },
-  {
-    slug: "studyflow",
-    name: "StudyFlow",
-    tagline: "AI-powered study planning platform",
-    description:
-      "Help students plan, track, and stay on top of their academic goals with an AI study companion.",
-    audience: ["Students", "Universities"],
-    features: [
-      "Study Planner",
-      "AI Tutor",
-      "Goal Tracking",
-      "Revision Planner",
-      "Assignment Tracker",
-    ],
-    benefits: [
-      {
-        title: "One place to plan, not five apps",
-        description:
-          "Study planning, revision, and assignment tracking together instead of spread across separate tools.",
-      },
-      {
-        title: "An AI tutor that knows the plan",
-        description:
-          "Guidance tied to what a student is actually working on, not generic study tips.",
-      },
-      {
-        title: "Built for the academic calendar",
-        description:
-          "Goal tracking that follows semester and exam timelines, not a generic productivity cycle.",
-      },
-    ],
-    deployment: ["Individual", "Institution", "Integrated with UAMSA"],
-    subdomain: "studyflow.uamsatech.com",
-    pricingPlans: ["individual", "institution"],
-    accent: "blue",
-    isLive: false,
-  },
+  // StudyFlow was retired: its features (study planner, AI tutor, goal tracking,
+  // revision planner, assignment tracker) are part of ScholarSuite.
+  // /products/studyflow redirects to /products/scholarsuite (next.config.ts).
 ];
 
 export const mainNav = [

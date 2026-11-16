@@ -27,7 +27,7 @@ const plans = [
     name: "Individual",
     price: "From ₦0",
     description:
-      "For individual lecturers, students, and researchers getting started with LectureSuite, ScholarSuite, or StudyFlow.",
+      "For individual lecturers, students, and researchers getting started with LectureSuite, ScholarSuite, or ResearchSuite.",
     features: [
       "Access to one product",
       "Single sign-on account",
@@ -87,7 +87,7 @@ const faqItems = [
   {
     question: "Is there a free trial?",
     answer:
-      "Individual plans for LectureSuite, ScholarSuite, and StudyFlow include a free tier to get started. Institutional plans include a guided pilot before full rollout.",
+      "Individual plans for LectureSuite, ScholarSuite, and ResearchSuite include a free tier to get started. Institutional plans include a guided pilot before full rollout.",
   },
 ];
 

@@ -15,7 +15,7 @@ import { Faq } from "@/features/marketing/components/faq";
 export const metadata: Metadata = {
   title: "Support",
   description:
-    "Get help with UAMSA, LectureSuite, ScholarSuite, Records, and StudyFlow.",
+    "Get help with UAMSA, LectureSuite, ScholarSuite, ResearchSuite, and Records.",
   alternates: { canonical: "/support" },
 };
 
@@ -89,8 +89,8 @@ export default function SupportPage() {
       <section className="mx-auto max-w-4xl px-4 pt-24 pb-4 text-center sm:px-6 lg:px-8">
         <H1>How can we help?</H1>
         <Lead className="mx-auto mt-6 max-w-2xl">
-          Support for UAMSA, LectureSuite, ScholarSuite, Records, and StudyFlow
-          — all in one place.
+          Support for UAMSA, LectureSuite, ScholarSuite, ResearchSuite, and
+          Records — all in one place.
         </Lead>
       </section>
 

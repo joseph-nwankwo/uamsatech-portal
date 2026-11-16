@@ -11,14 +11,12 @@ import {
   HelpCircle,
   Bot,
   FileText,
-  BookOpen,
   ShieldCheck,
   Search,
   FileCheck,
   QrCode,
   FileSpreadsheet,
   Calendar,
-  Target,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -95,13 +93,6 @@ const faqByProduct: Record<string, { question: string; answer: string }[]> = {
         "Yes. Records supports third-party SIS integration in addition to standalone use and integration with UAMSA.",
     },
   ],
-  studyflow: [
-    {
-      question: "Does StudyFlow require a university subscription?",
-      answer:
-        "No. Students can use StudyFlow individually, and universities can also offer it institution-wide integrated with UAMSA.",
-    },
-  ],
 };
 
 const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
@@ -117,7 +108,7 @@ const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
   ],
   scholarsuite: [
     { icon: Calendar, label: "Study planner" },
-    { icon: BookOpen, label: "Study tools" },
+    { icon: Bot, label: "AI tutor" },
     { icon: ShieldCheck, label: "Plagiarism & AI check" },
   ],
   researchsuite: [
@@ -129,11 +120,6 @@ const mockupPanels: Record<string, { icon: LucideIcon; label: string }[]> = {
     { icon: FileCheck, label: "Transcript generator" },
     { icon: QrCode, label: "QR verification" },
     { icon: FileSpreadsheet, label: "Excel import" },
-  ],
-  studyflow: [
-    { icon: Calendar, label: "Study planner" },
-    { icon: Bot, label: "AI tutor" },
-    { icon: Target, label: "Goal tracking" },
   ],
 };
 

@@ -120,40 +120,6 @@ const PRODUCT_PLANS = [
   },
 
   {
-    productSlug: "studyflow",
-    planKey: "free",
-    interval: "MONTHLY",
-    priceCents: 0,
-    features: ["Core AI tools", "Single sign-on account"],
-  },
-  {
-    productSlug: "studyflow",
-    planKey: "starter",
-    interval: "MONTHLY",
-    priceCents: 800,
-    features: ["Everything in Free", "Study planner", "Assignment tracker"],
-  },
-  {
-    productSlug: "studyflow",
-    planKey: "professional",
-    interval: "MONTHLY",
-    priceCents: 2000,
-    features: ["Everything in Starter", "AI tutor", "Revision planner"],
-  },
-  {
-    productSlug: "studyflow",
-    planKey: "enterprise",
-    interval: "YEARLY",
-    priceCents: 29900,
-    isStartingPrice: true,
-    features: [
-      "Institution-wide deployment",
-      "Dedicated onboarding",
-      "Integrated with UAMSA",
-    ],
-  },
-
-  {
     productSlug: "records",
     planKey: "starter",
     interval: "MONTHLY",
@@ -234,9 +200,13 @@ const PRODUCTS = [
   { slug: "lecturercraft", name: "LecturerCraft" },
   { slug: "scholarcraft", name: "ScholarCraft" },
   { slug: "records", name: "Records" },
-  { slug: "studyflow", name: "StudyFlow" },
   { slug: "researchsuite", name: "ResearchSuite" },
 ];
+
+// Products no longer sold. Their rows are kept (past subscriptions, invoices and
+// usage reference them) but their plans are switched off so they stop appearing
+// on the billing page. StudyFlow's features are now part of ScholarSuite.
+const RETIRED_PRODUCT_SLUGS = ["studyflow"];
 
 // Institutional bylines, not fabricated individual people — the blog is
 // company-authored (see docs/03-marketing-website.md), and inventing a named
@@ -290,8 +260,8 @@ const BLOG_POSTS = [
     publishedAt: "2026-01-15T09:00:00.000Z",
     content: [
       "Most universities and lecturers we spoke to weren't short on software — they were short on software that worked together. A registrar's office running one system for admissions, another for results, and a third for transcripts. A lecturer copying grades between a spreadsheet and whatever the university's portal happens to be.",
-      "UAMSATech starts from a different premise: one account should get you everything. UAMSA handles the institutional core — admissions, students, staff, courses, results, fees. LecturerCraft, ScholarCraft, StudyFlow, and Records each solve a specific problem for a specific role, and every one of them talks to the others through the same sign-on.",
-      "That means a university can roll out UAMSA institution-wide, and its lecturers, students, and registrars pick up LecturerCraft, ScholarCraft, StudyFlow, or Records without a second account, a second invoice, or a second support line.",
+      "UAMSATech starts from a different premise: one account should get you everything. UAMSA handles the institutional core — admissions, students, staff, courses, results, fees. LecturerCraft, ScholarCraft, ResearchSuite, and Records each solve a specific problem for a specific role, and every one of them talks to the others through the same sign-on.",
+      "That means a university can roll out UAMSA institution-wide, and its lecturers, students, and registrars pick up LecturerCraft, ScholarCraft, ResearchSuite, or Records without a second account, a second invoice, or a second support line.",
       "We're building this for higher education in Africa first, with local payment support (Paystack, Flutterwave, alongside Stripe) from day one, not bolted on later.",
     ],
   },
@@ -326,7 +296,7 @@ const BLOG_POSTS = [
     content: [
       "Most academic software available to African universities today was designed for a different market and later localized, if at all. We wanted to flip that: design for the constraints and scale of African higher education first, and treat everything else as the exception.",
       "Practically, that means: Paystack and Flutterwave as first-class payment options next to Stripe, not an afterthought. Pricing that works for both a single lecturer paying out of pocket and a public university with tens of thousands of students. And a product roadmap shaped by conversations with registrars and lecturers who are currently solving these problems with spreadsheets and WhatsApp groups, not by guessing.",
-      "We're still early. If you're at a university, a lecturer, or a registrar dealing with any of the problems UAMSA, LecturerCraft, ScholarCraft, StudyFlow, or Records are meant to solve, we'd genuinely like to hear from you — see our Customers page for how to get involved as a founding partner.",
+      "We're still early. If you're at a university, a lecturer, or a registrar dealing with any of the problems UAMSA, LecturerCraft, ScholarCraft, ResearchSuite, or Records are meant to solve, we'd genuinely like to hear from you — see our Customers page for how to get involved as a founding partner.",
     ],
   },
   {
@@ -375,7 +345,7 @@ const KNOWLEDGE_BASE_ARTICLES = [
     title: "How does one account work across every UAMSATech product?",
     excerpt: "Single sign-on explained, and what it does (and doesn't) do.",
     content: [
-      "Your UAMSATech account works across every product in the ecosystem — UAMSA, LecturerCraft, ScholarCraft, Records, and StudyFlow — without creating a separate login for each.",
+      "Your UAMSATech account works across every product in the ecosystem — UAMSA, LecturerCraft, ScholarCraft, ResearchSuite, and Records — without creating a separate login for each.",
       "This works through a shared authentication cookie scoped to *.uamsatech.com, plus a cross-subdomain endpoint each product calls to confirm who you are. Signing in on one product signs you in everywhere; signing out does the same in reverse.",
       "Products themselves are independent — being subscribed to LecturerCraft doesn't automatically grant access to ScholarCraft. SSO means one identity, not one bundled subscription.",
     ],
@@ -493,6 +463,14 @@ async function main() {
     });
   }
   console.log(`Seeded ${PRODUCT_PLANS.length} product plans.`);
+
+  const retired = await db.productPlan.updateMany({
+    where: { product: { slug: { in: RETIRED_PRODUCT_SLUGS } }, isActive: true },
+    data: { isActive: false },
+  });
+  console.log(
+    `Retired products (${RETIRED_PRODUCT_SLUGS.join(", ")}): deactivated ${retired.count} plan(s).`
+  );
 
   for (const flag of FEATURE_FLAGS) {
     await db.featureFlag.upsert({

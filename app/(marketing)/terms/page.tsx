@@ -22,8 +22,8 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold">1. Acceptance of terms</h2>
           <p className="text-muted-foreground mt-2">
             By creating a {siteConfig.name} account or using any UAMSATech
-            product — UAMSA, LectureSuite, ScholarSuite, Records, or StudyFlow
-            — you agree to these terms.
+            product — UAMSA, LectureSuite, ScholarSuite, ResearchSuite, or
+            Records — you agree to these terms.
           </p>
         </section>
         <section>
