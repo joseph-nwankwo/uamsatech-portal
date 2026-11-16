@@ -32,7 +32,17 @@ const nextConfig: NextConfig = {
   // information for an attacker with no upside for us.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: buildSecurityHeaders(isDev) }];
+    return [
+      { source: "/:path*", headers: buildSecurityHeaders(isDev) },
+      // Launch redirects carry a single-use sign-on token in the query string.
+      // The route sets no-referrer itself, but the global rule above would
+      // override it with strict-origin-when-cross-origin, so restate it here
+      // (later matching rules win).
+      {
+        source: "/api/portal/launch/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+    ];
   },
   // StudyFlow was retired and folded into ScholarSuite (which now has its study
   // planner, AI tutor, goal tracking, revision planner, and assignment tracker).
