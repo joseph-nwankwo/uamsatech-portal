@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { checkRateLimit, requestIp } from "@/lib/auth/rate-limit";
 import { logActivity } from "@/lib/portal/audit";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const bugReportSchema = z.object({
   title: z.string().min(5).max(200),
@@ -11,7 +12,7 @@ const bugReportSchema = z.object({
   stepsToReproduce: z.string().max(5000).optional(),
   severity: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
   productSlug: z.string().optional(),
-  email: z.email().optional(),
+  email: emailField().optional(),
 });
 
 export async function POST(request: Request) {

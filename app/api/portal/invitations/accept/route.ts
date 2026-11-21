@@ -8,6 +8,7 @@ import { REFRESH_TOKEN_COOKIE } from "@/lib/auth/cookies";
 import { hashToken } from "@/lib/auth/tokens";
 import { logActivity } from "@/lib/portal/audit";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
+import { normalizeEmail } from "@/lib/auth/normalize-email";
 
 const acceptSchema = z.object({ token: z.string().min(1) });
 
@@ -54,7 +55,10 @@ export async function POST(request: Request) {
   }
 
   const user = await db.user.findUnique({ where: { id: session.sub } });
-  if (!user || user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+  if (
+    !user ||
+    normalizeEmail(user.email) !== normalizeEmail(invitation.email)
+  ) {
     return NextResponse.json(
       {
         error: `This invitation was sent to ${invitation.email}. Sign in with that email to accept it.`,

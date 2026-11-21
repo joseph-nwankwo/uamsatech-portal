@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { H1, H3, Muted } from "@/components/ui/typography";
 import { SignupsChart } from "@/features/admin/components/signups-chart";
 import { db } from "@/lib/db";
+import { getAdminContext } from "@/lib/admin/auth";
 
 export const metadata: Metadata = {
   title: "Customer Analytics",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminCustomersPage() {
+  await getAdminContext();
   const now = new Date();
   const since = new Date(now);
   since.setDate(since.getDate() - 29);

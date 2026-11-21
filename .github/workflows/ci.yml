@@ -33,6 +33,9 @@ jobs:
       # secret (see .github/workflows/deploy.yml). Long enough to pass
       # lib/env.ts's 32-character minimum; not used to sign anything real.
       AUTH_JWT_SECRET: ci-placeholder-secret-not-used-in-production-00
+      # Test-only allowlisted address for tests/security/email-normalization.test.ts
+      # (S1 regression). Never add it to a production ADMIN_EMAILS.
+      ADMIN_EMAILS: security-admin@example.com
 
     steps:
       - uses: actions/checkout@v4

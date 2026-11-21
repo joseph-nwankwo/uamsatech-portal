@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isAllowedOrigin } from "@/lib/auth/cors";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const loginSchema = z.object({
-  email: z.email("Enter a valid email address"),
+  email: emailField("Enter a valid email address"),
   password: z.string().min(1, "Enter your password"),
 });
 

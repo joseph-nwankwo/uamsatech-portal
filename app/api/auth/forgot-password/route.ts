@@ -9,9 +9,10 @@ import {
 } from "@/lib/auth/tokens";
 import { sendEmail } from "@/lib/auth/email";
 import { checkRateLimit, requestIp } from "@/lib/auth/rate-limit";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const forgotPasswordSchema = z.object({
-  email: z.email(),
+  email: emailField(),
 });
 
 const GENERIC_MESSAGE =

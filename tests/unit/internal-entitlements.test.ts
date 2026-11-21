@@ -44,14 +44,13 @@ let dbFails = false;
 vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findMany: async ({ where }: { where: { email: { equals: string } } }) => {
+      // Exact match, like the real unique index: the DB stores emails
+      // normalized (CHECK users_email_normalized), so normalizing the lookup
+      // is the service's job, not the mock's.
+      findUnique: async ({ where }: { where: { email: string } }) => {
         if (dbFails) throw new Error("db down");
-        return users
-          .filter(
-            (u) => u.email.toLowerCase() === where.email.equals.toLowerCase()
-          )
-          .slice(0, 2)
-          .map((u) => ({ id: u.id }));
+        const u = users.find((x) => x.email === where.email);
+        return u ? { id: u.id } : null;
       },
     },
     subscription: {
@@ -284,13 +283,16 @@ describe("decision — reuses the launch entitlement policy", () => {
     });
   });
 
-  it("an email matching two portal accounts case-insensitively is DENIED, not guessed", async () => {
-    users.push({ id: "u2", email: "Person@uni.edu" });
-    expect(await (await call(ask())).json()).toMatchObject({
-      decision: "DENIED",
-      reason: "ambiguous_account",
-    });
-  });
+  // S1 / AC7: case and surrounding whitespace in the request resolve to the
+  // single normalized account; the old ambiguous_account outcome is gone.
+  it.each(["  Person@UNI.edu ", "PERSON@uni.EDU", "person@uni.edu"])(
+    "resolves %j to the one normalized account, never ambiguous_account",
+    async (email) => {
+      const body = await (await call(ask(email))).json();
+      expect(body).toMatchObject({ decision: "GRANTED", reason: null });
+      expect(JSON.stringify(body)).not.toContain("ambiguous_account");
+    }
+  );
 
   it("institution access follows the existing product-specific organization licence rule", async () => {
     subs = [

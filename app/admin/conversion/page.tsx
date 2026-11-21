@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { H1, Muted } from "@/components/ui/typography";
 import { db } from "@/lib/db";
+import { getAdminContext } from "@/lib/admin/auth";
 
 export const metadata: Metadata = {
   title: "Conversion Tracking",
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminConversionPage() {
+  await getAdminContext();
   const [signedUp, verifiedEmail, joinedOrg, subscribed] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { emailVerified: { not: null } } }),

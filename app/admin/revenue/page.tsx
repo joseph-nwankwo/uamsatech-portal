@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { H1, H3, Muted } from "@/components/ui/typography";
 import { db } from "@/lib/db";
+import { getAdminContext } from "@/lib/admin/auth";
 
 export const metadata: Metadata = {
   title: "Revenue",
@@ -27,6 +28,7 @@ function formatPrice(cents: number, currency: string) {
 }
 
 export default async function AdminRevenuePage() {
+  await getAdminContext();
   const [paidInvoices, activeSubscriptions, recentInvoices] = await Promise.all(
     [
       db.invoice.findMany({ where: { status: "PAID" } }),

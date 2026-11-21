@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { hashToken } from "@/lib/auth/tokens";
+import { normalizeEmail } from "@/lib/auth/normalize-email";
 
 export const metadata: Metadata = {
   title: "Accept invitation",
@@ -96,8 +97,8 @@ export default async function InvitePage({
               }
             />
           </div>
-        ) : currentUser.email.toLowerCase() !==
-          invitation.email.toLowerCase() ? (
+        ) : normalizeEmail(currentUser.email) !==
+          normalizeEmail(invitation.email) ? (
           <div className="mt-2 w-full space-y-3">
             <p className="bg-destructive/10 text-destructive rounded-lg px-3 py-2 text-sm">
               This invitation was sent to {invitation.email}, but you&apos;re

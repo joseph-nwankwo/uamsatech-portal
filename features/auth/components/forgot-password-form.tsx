@@ -9,9 +9,10 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const forgotPasswordSchema = z.object({
-  email: z.email("Enter a valid email address"),
+  email: emailField("Enter a valid email address"),
 });
 
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;

@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { db } from "@/lib/db";
 import {
   BASE_URL,
-  createTestUser,
+  createDbTestUser,
   authHeaders,
   type TestUser,
 } from "./helpers";
@@ -17,8 +17,11 @@ describe("cross-user resource access (IDOR)", () => {
   let commentId: string;
 
   it("lets a user create their own comment", async () => {
-    userA = await createTestUser("idor-a");
-    userB = await createTestUser("idor-b");
+    // Created in the DB, not via HTTP signup: this file tests resource
+    // ownership, not signup, and the 5/hour signup budget is needed by
+    // email-normalization.test.ts.
+    userA = await createDbTestUser("idor-a");
+    userB = await createDbTestUser("idor-b");
 
     const res = await fetch(`${BASE_URL}/api/blog/${BLOG_SLUG}/comments`, {
       method: "POST",

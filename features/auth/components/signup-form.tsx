@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isAllowedOrigin } from "@/lib/auth/cors";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Enter your full name"),
-  email: z.email("Enter a valid email address"),
+  email: emailField("Enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 

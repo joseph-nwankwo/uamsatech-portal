@@ -6,6 +6,7 @@ import {
   type DenialReason,
 } from "@/lib/portal/entitlement";
 import type { LaunchTargetProduct } from "@/lib/auth/launch-jwt";
+import { normalizeEmail } from "@/lib/auth/normalize-email";
 
 /**
  * Central entitlement verification for product backends (AS-P0-SECURITY-006A).
@@ -95,8 +96,9 @@ const STATUS_FOR_DENIAL: Record<DenialReason, EntitlementStatus> = {
 /**
  * Decides entitlement for the portal account with this email. The product
  * identifies users by email (its users are provisioned from the launch token's
- * email claim). An email that matches no portal account — or, case-insensitively,
- * more than one — is denied rather than guessed.
+ * email claim). Emails are stored normalized (CHECK users_email_normalized +
+ * users_email_key), so a normalized lookup matches at most one account and
+ * case variants can no longer make the answer ambiguous. No match is denied.
  */
 export async function decideEntitlementForEmail(
   email: string,
@@ -105,22 +107,21 @@ export async function decideEntitlementForEmail(
 ): Promise<CentralEntitlementDecision> {
   const base = { v: 1 as const, product, decidedAt: now.toISOString() };
 
-  const users = await db.user.findMany({
-    where: { email: { equals: email, mode: "insensitive" } },
+  const user = await db.user.findUnique({
+    where: { email: normalizeEmail(email) },
     select: { id: true },
-    take: 2,
   });
-  if (users.length !== 1) {
+  if (!user) {
     return {
       ...base,
       decision: "DENIED",
       status: "NONE",
-      reason: users.length ? "ambiguous_account" : "no_account",
+      reason: "no_account",
       paidThrough: null,
     };
   }
 
-  const decision = await resolveProductEntitlement(users[0].id, product, now);
+  const decision = await resolveProductEntitlement(user.id, product, now);
   if (!decision.granted) {
     return {
       ...base,

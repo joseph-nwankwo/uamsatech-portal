@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { H1, H3, Muted } from "@/components/ui/typography";
 import { db } from "@/lib/db";
+import { getAdminContext } from "@/lib/admin/auth";
 
 export const metadata: Metadata = {
   title: "Marketing Dashboard",
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminMarketingPage() {
+  await getAdminContext();
   const [
     subscriberCount,
     activeSubscriberCount,

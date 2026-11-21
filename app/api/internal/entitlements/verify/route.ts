@@ -6,6 +6,7 @@ import {
   authenticateProductService,
   decideEntitlementForEmail,
 } from "@/lib/portal/entitlement-service";
+import { emailField } from "@/lib/auth/normalize-email";
 
 /**
  * POST /api/internal/entitlements/verify — server-to-server only
@@ -24,7 +25,7 @@ import {
 
 const bodySchema = z.object({
   product: z.string().max(40),
-  subject: z.object({ email: z.string().email().max(320) }),
+  subject: z.object({ email: emailField() }),
 });
 
 const noStore = { "Cache-Control": "no-store" };
@@ -36,28 +37,52 @@ function reply(body: unknown, status: number) {
 export async function POST(request: Request) {
   // Throttle by caller IP before the credential is examined, so guessing
   // credentials is rate-limited too.
-  const ipLimit = await checkRateLimit(`entitlement-verify-ip:${requestIp(request)}`, 600, 60 * 1000);
+  const ipLimit = await checkRateLimit(
+    `entitlement-verify-ip:${requestIp(request)}`,
+    600,
+    60 * 1000
+  );
   if (!ipLimit.allowed) return reply({ error: "rate_limited" }, 429);
 
   const raw = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) return reply({ error: "malformed_request" }, 400);
 
-  const auth = authenticateProductService(request.headers.get("authorization"), parsed.data.product);
+  const auth = authenticateProductService(
+    request.headers.get("authorization"),
+    parsed.data.product
+  );
   if (!auth.ok) {
-    logger.warn("entitlement.verify_refused", { product: parsed.data.product.slice(0, 40), error: auth.error });
+    logger.warn("entitlement.verify_refused", {
+      product: parsed.data.product.slice(0, 40),
+      error: auth.error,
+    });
     return reply({ error: auth.error }, auth.status);
   }
 
-  const { allowed } = await checkRateLimit(`entitlement-verify:${auth.product}`, 1200, 60 * 1000);
+  const { allowed } = await checkRateLimit(
+    `entitlement-verify:${auth.product}`,
+    1200,
+    60 * 1000
+  );
   if (!allowed) return reply({ error: "rate_limited" }, 429);
 
   try {
-    const decision = await decideEntitlementForEmail(parsed.data.subject.email, auth.product);
-    logger.info("entitlement.verified", { product: auth.product, decision: decision.decision, reason: decision.reason });
+    const decision = await decideEntitlementForEmail(
+      parsed.data.subject.email,
+      auth.product
+    );
+    logger.info("entitlement.verified", {
+      product: auth.product,
+      decision: decision.decision,
+      reason: decision.reason,
+    });
     return reply(decision, 200);
   } catch (err) {
-    logger.error("entitlement.verify_failed", { product: auth.product, error: (err as Error).message });
+    logger.error("entitlement.verify_failed", {
+      product: auth.product,
+      error: (err as Error).message,
+    });
     return reply({ error: "unavailable" }, 503);
   }
 }

@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Enter your full name"),
-  email: z.email("Enter a valid email address"),
+  email: emailField("Enter a valid email address"),
   institution: z.string().optional(),
   message: z.string().min(10, "Tell us a bit more (10 characters minimum)"),
 });

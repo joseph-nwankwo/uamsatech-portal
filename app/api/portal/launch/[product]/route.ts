@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { signLaunchToken } from "@/lib/auth/launch-jwt";
+import { normalizeEmail } from "@/lib/auth/normalize-email";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -134,7 +135,11 @@ export async function GET(
     );
   }
 
-  const token = await signLaunchToken(session.sub, user.email, mapping.target);
+  const token = await signLaunchToken(
+    session.sub,
+    normalizeEmail(user.email),
+    mapping.target
+  );
   destination.searchParams.set("token", token);
 
   return noStore(NextResponse.redirect(destination.toString()));

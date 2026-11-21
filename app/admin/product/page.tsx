@@ -3,6 +3,7 @@ import { Activity, BarChart3 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { H1, H3, Muted } from "@/components/ui/typography";
 import { db } from "@/lib/db";
+import { getAdminContext } from "@/lib/admin/auth";
 
 export const metadata: Metadata = {
   title: "Product Analytics",
@@ -19,6 +20,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 export default async function AdminProductPage() {
+  await getAdminContext();
   const now = new Date();
   const since = new Date(now);
   since.setDate(since.getDate() - 29);

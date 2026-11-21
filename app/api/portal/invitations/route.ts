@@ -13,9 +13,10 @@ import {
 import { logActivity } from "@/lib/portal/audit";
 import { hasPermission } from "@/lib/portal/permissions";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const inviteSchema = z.object({
-  email: z.email("Enter a valid email address"),
+  email: emailField("Enter a valid email address"),
   role: z.enum(["MEMBER", "ADMIN", "OWNER"]).default("MEMBER"),
 });
 

@@ -3,10 +3,11 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { checkRateLimit, requestIp } from "@/lib/auth/rate-limit";
 import { trackEvent } from "@/lib/analytics/track";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const contactSchema = z.object({
   name: z.string().min(2).max(100),
-  email: z.email(),
+  email: emailField(),
   institution: z.string().max(200).optional(),
   message: z.string().min(10).max(5000),
 });

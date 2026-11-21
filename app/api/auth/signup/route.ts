@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { hashPassword } from "@/lib/auth/passwords";
@@ -12,10 +13,11 @@ import { sendEmail } from "@/lib/auth/email";
 import { issueSession } from "@/lib/auth/issue-session";
 import { checkRateLimit, requestIp } from "@/lib/auth/rate-limit";
 import { trackEvent } from "@/lib/analytics/track";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Enter your full name").max(100),
-  email: z.email("Enter a valid email address"),
+  email: emailField("Enter a valid email address"),
   // bcrypt only uses the first 72 bytes of input — anything past that is
   // silently ignored, so an unbounded max would let two different long
   // passwords that share the same first 72 bytes both "work". Capping here
@@ -46,16 +48,30 @@ export async function POST(request: Request) {
   }
   const { name, email, password } = parsed.data;
 
-  const existing = await db.user.findUnique({ where: { email } });
-  if (existing) {
-    return NextResponse.json(
+  const duplicate = () =>
+    NextResponse.json(
       { error: "An account with this email already exists." },
       { status: 409 }
     );
-  }
+
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing) return duplicate();
 
   const passwordHash = await hashPassword(password);
-  const user = await db.user.create({ data: { name, email, passwordHash } });
+  let user;
+  try {
+    user = await db.user.create({ data: { name, email, passwordHash } });
+  } catch (err) {
+    // A concurrent signup for the same (normalized) address won the race and
+    // hit users_email_key first — same answer as the check above, not a 500.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return duplicate();
+    }
+    throw err;
+  }
 
   const rawToken = generateOpaqueToken();
   await db.verificationToken.create({

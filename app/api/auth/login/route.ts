@@ -8,9 +8,10 @@ import { checkRateLimit, requestIp } from "@/lib/auth/rate-limit";
 import { logActivity } from "@/lib/portal/audit";
 import { trackEvent } from "@/lib/analytics/track";
 import { logger } from "@/lib/logger";
+import { emailField } from "@/lib/auth/normalize-email";
 
 const loginSchema = z.object({
-  email: z.email(),
+  email: emailField(),
   password: z.string().min(1).max(72),
 });
 
