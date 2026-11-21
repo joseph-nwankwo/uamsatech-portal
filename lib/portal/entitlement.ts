@@ -31,6 +31,19 @@ const CATALOG_SLUGS: Record<LaunchTargetProduct, readonly string[]> = {
   researchsuite: ["researchsuite"],
 };
 
+/**
+ * The marketing-catalogue slug (lib/site-config.ts) for a database Product.slug.
+ * Databases seeded before the rename still hold the old slugs ("scholarcraft",
+ * "lecturercraft"); pages that match subscriptions against the catalogue must
+ * translate them, or a subscribed user is shown as "Not subscribed".
+ */
+export function catalogSlugFor(productSlug: string): string {
+  for (const [canonical, aliases] of Object.entries(CATALOG_SLUGS)) {
+    if (aliases.includes(productSlug)) return canonical;
+  }
+  return productSlug;
+}
+
 export type DenialReason =
   | "no_subscription"
   | "period_end_unknown"

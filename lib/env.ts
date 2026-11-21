@@ -50,6 +50,10 @@ const baseEnvSchema = z.object({
     )
     .optional(),
   COOKIE_DOMAIN: z.string().optional(),
+  // Shared secret for portal↔product service-to-server calls (SSO token exchange).
+  // When set, launch tokens are stored server-side and NOT placed in redirect URLs.
+  // ≥32 chars; must differ from CRAFT_LAUNCH_SECRET and AUTH_JWT_SECRET.
+  PORTAL_SERVICE_SECRET: z.string().min(32).optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("UAMSATech <noreply@uamsatech.com>"),
 

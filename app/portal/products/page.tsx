@@ -7,6 +7,7 @@ import { H1, Muted } from "@/components/ui/typography";
 import { getPortalContext } from "@/lib/portal/context";
 import { db } from "@/lib/db";
 import { products as marketingProducts } from "@/lib/site-config";
+import { catalogSlugFor } from "@/lib/portal/entitlement";
 import { productLaunchHref } from "@/lib/portal/launch-links";
 
 export const metadata: Metadata = {
@@ -24,7 +25,10 @@ export default async function PortalProductsPage() {
     include: { product: true },
   });
 
-  const subscribedSlugs = new Set(subscriptions.map((s) => s.product.slug));
+  // DB slugs may be the pre-rename ones ("scholarcraft"); compare catalogue slugs.
+  const subscribedSlugs = new Set(
+    subscriptions.map((s) => catalogSlugFor(s.product.slug))
+  );
 
   return (
     <div className="mx-auto max-w-4xl">

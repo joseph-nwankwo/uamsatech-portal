@@ -15,6 +15,7 @@ import { BillingPlans } from "@/features/portal/components/billing-plans";
 import { getPortalContext } from "@/lib/portal/context";
 import { db } from "@/lib/db";
 import { products as marketingProducts } from "@/lib/site-config";
+import { catalogSlugFor } from "@/lib/portal/entitlement";
 import { isStripeConfigured } from "@/lib/billing/stripe";
 import { isPaystackConfigured } from "@/lib/billing/paystack";
 import { isFlutterwaveConfigured } from "@/lib/billing/flutterwave";
@@ -86,7 +87,9 @@ export default async function BillingPage() {
 
   const visiblePlans = activeMembership
     ? productPlans
-    : productPlans.filter((p) => individualSlugs.has(p.product.slug));
+    : productPlans.filter((p) =>
+        individualSlugs.has(catalogSlugFor(p.product.slug))
+      );
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -112,7 +115,11 @@ export default async function BillingPage() {
                 id: p.id,
                 planName: p.plan.name,
                 productSlug: p.product.slug,
-                productName: p.product.name,
+                // Prefer the current catalogue name over a pre-rename DB name.
+                productName:
+                  marketingProducts.find(
+                    (m) => m.slug === catalogSlugFor(p.product.slug)
+                  )?.name ?? p.product.name,
                 interval: p.interval,
                 priceCents: p.priceCents,
                 currency: p.currency,

@@ -25,6 +25,7 @@ import { H1, H3 } from "@/components/ui/typography";
 import { getPortalContext } from "@/lib/portal/context";
 import { db } from "@/lib/db";
 import { products as marketingProducts } from "@/lib/site-config";
+import { catalogSlugFor } from "@/lib/portal/entitlement";
 import { productLaunchHref } from "@/lib/portal/launch-links";
 
 export const metadata: Metadata = {
@@ -70,7 +71,14 @@ export default async function PortalDashboardPage() {
     }),
   ]);
 
-  const subscribedSlugs = new Set(subscriptions.map((s) => s.product.slug));
+  // DB slugs may be the pre-rename ones ("scholarcraft"); compare catalogue slugs.
+  const subscribedSlugs = new Set(
+    subscriptions.map((s) => catalogSlugFor(s.product.slug))
+  );
+  // Show the current catalogue name, not a pre-rename DB name ("ScholarCraft").
+  const displayName = (product: { slug: string; name: string }) =>
+    marketingProducts.find((m) => m.slug === catalogSlugFor(product.slug))
+      ?.name ?? product.name;
   const ownedProducts = marketingProducts.filter((p) =>
     subscribedSlugs.has(p.slug)
   );
@@ -80,7 +88,7 @@ export default async function PortalDashboardPage() {
     ? await db.product.findMany({ where: { id: { in: usageProductIds } } })
     : [];
   const usageProductNameById = new Map(
-    usageProducts.map((p) => [p.id, p.name])
+    usageProducts.map((p) => [p.id, displayName(p)])
   );
 
   return (
@@ -264,7 +272,7 @@ export default async function PortalDashboardPage() {
                   {subscriptions.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell className="text-foreground font-medium">
-                        {sub.product.name}
+                        {displayName(sub.product)}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {sub.productPlan

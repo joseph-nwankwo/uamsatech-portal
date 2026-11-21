@@ -140,7 +140,7 @@ export const products: Product[] = [
     subdomain: "scholarsuite.uamsatech.com",
     pricingPlans: ["individual", "institution"],
     accent: "gold",
-    isLive: false,
+    isLive: true,
   },
   {
     slug: "researchsuite",
