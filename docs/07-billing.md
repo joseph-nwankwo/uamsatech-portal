@@ -26,7 +26,9 @@ Stripe (`stripe` SDK), Paystack, Flutterwave (both via direct REST calls — nei
 
 ## Feature Flags
 
-`/portal/feature-flags` — `PATCH /api/portal/feature-flags/[id]` is OWNER-role-gated (`403` for non-owners) and logs to `AuditLog`. Toggled `billing_flutterwave_enabled` off, confirmed persisted via a direct DB read, then toggled it back to its original seeded state.
+Flags are global, platform-wide rows (they include the payment-provider switches every customer's checkout reads), so they're managed only by platform admins (S2). The page is `/admin/feature-flags` and the write endpoint is `PATCH /api/admin/feature-flags/[id]`. Both sit behind the admin gate in `lib/admin/auth.ts` (`getAdminContext` / `requireAdminApi`) and return `404` to anyone else, org OWNERs included. Each change writes a `feature_flag.updated` `AuditLog` row with the actor's user id and `{ key, oldValue, newValue }` in the same transaction as the update. Customer-facing reads (`isFeatureEnabled` in `lib/billing/feature-flags.ts`, used by the billing page) are unchanged.
+
+_Superseded:_ this phase originally shipped `/portal/feature-flags` with an OWNER-only `PATCH /api/portal/feature-flags/[id]`. Both were removed in the S2 fix.
 
 ## Coupons
 

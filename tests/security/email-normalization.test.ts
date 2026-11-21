@@ -21,6 +21,7 @@ const ADMIN_ROUTES = [
   "/admin/marketing",
   "/admin/product",
   "/admin/conversion",
+  "/admin/feature-flags",
 ];
 
 const allowlisted = (process.env.ADMIN_EMAILS ?? "")

@@ -31,13 +31,18 @@ export type AuditAction =
   | "product.launch_granted"
   | "product.launch_denied";
 
+/**
+ * Pass `client` (a transaction client) to write the audit row in the same
+ * transaction as the change it records.
+ */
 export async function logActivity(
   userId: string,
   action: AuditAction,
   metadata?: Prisma.InputJsonValue,
-  organizationId?: string
+  organizationId?: string,
+  client: Prisma.TransactionClient = db
 ) {
-  await db.auditLog.create({
+  await client.auditLog.create({
     data: { userId, action, metadata, organizationId },
   });
 }

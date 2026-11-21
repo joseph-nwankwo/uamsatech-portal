@@ -15,7 +15,6 @@ import {
   CreditCard,
   KeyRound,
   BarChart3,
-  Flag,
   LifeBuoy,
 } from "lucide-react";
 import {
@@ -54,10 +53,7 @@ const navGroups = [
   },
   {
     label: "Developer",
-    items: [
-      { title: "API Keys", href: "/portal/api-keys", icon: KeyRound },
-      { title: "Feature Flags", href: "/portal/feature-flags", icon: Flag },
-    ],
+    items: [{ title: "API Keys", href: "/portal/api-keys", icon: KeyRound }],
   },
   {
     label: "Account",

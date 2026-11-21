@@ -22,6 +22,7 @@ describe("/admin gate", () => {
       "/admin/marketing",
       "/admin/product",
       "/admin/conversion",
+      "/admin/feature-flags",
     ];
     for (const route of routes) {
       const res = await fetch(`${BASE_URL}${route}`, {

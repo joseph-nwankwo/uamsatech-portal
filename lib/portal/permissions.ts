@@ -6,7 +6,6 @@ export type Permission =
   | "members.remove"
   | "members.changeRole"
   | "billing.manage"
-  | "featureFlags.manage"
   | "activity.viewOrganization"; // see everyone's activity, not just your own
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -16,7 +15,6 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "members.remove",
     "members.changeRole",
     "billing.manage",
-    "featureFlags.manage",
     "activity.viewOrganization",
   ],
   ADMIN: [
@@ -34,9 +32,9 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   OWNER:
-    "Full control: organization settings, billing, feature flags, and can change or remove any member, including other admins.",
+    "Full control: organization settings, billing, and can change or remove any member, including other admins.",
   ADMIN:
-    "Can invite and remove members, update organization settings, and view organization-wide activity. Cannot manage billing, feature flags, or change member roles.",
+    "Can invite and remove members, update organization settings, and view organization-wide activity. Cannot manage billing or change member roles.",
   MEMBER:
     "Can access subscribed products and view their own account activity. Cannot manage the organization, members, or billing.",
 };

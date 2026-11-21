@@ -16,20 +16,38 @@ export type FeatureFlagInfo = {
 export function FeatureFlagsList({ flags }: { flags: FeatureFlagInfo[] }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function toggle(id: string, checked: boolean) {
     setPendingId(id);
-    await fetch(`/api/portal/feature-flags/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isEnabled: checked }),
-    });
-    router.refresh();
-    setPendingId(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/feature-flags/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isEnabled: checked }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(body?.error ?? `Update failed (${res.status}).`);
+      }
+    } catch {
+      setError("Network error. The flag was not changed.");
+    } finally {
+      router.refresh();
+      setPendingId(null);
+    }
   }
 
   return (
     <div className="space-y-3">
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
       {flags.map((flag) => (
         <div
           key={flag.id}

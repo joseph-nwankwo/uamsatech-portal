@@ -8,6 +8,7 @@ import {
   Megaphone,
   Activity,
   Filter,
+  Flag,
   ShieldAlert,
 } from "lucide-react";
 import {
@@ -33,6 +34,15 @@ const navItems = [
   { title: "Conversion", href: "/admin/conversion", icon: Filter },
 ];
 
+const platformItems = [
+  { title: "Feature Flags", href: "/admin/feature-flags", icon: Flag },
+];
+
+const navGroups = [
+  { label: "Analytics", items: navItems },
+  { label: "Platform", items: platformItems },
+];
+
 export function AdminSidebar({ userEmail }: { userEmail: string }) {
   const pathname = usePathname();
 
@@ -51,27 +61,29 @@ export function AdminSidebar({ userEmail }: { userEmail: string }) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Analytics</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    tooltip={item.title}
-                    render={
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    }
-                  />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.href}
+                      tooltip={item.title}
+                      render={
+                        <Link href={item.href}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      }
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter>

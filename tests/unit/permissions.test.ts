@@ -9,7 +9,6 @@ describe("hasPermission — the security boundary every portal mutation route ch
       "members.remove",
       "members.changeRole",
       "billing.manage",
-      "featureFlags.manage",
       "activity.viewOrganization",
     ] as const;
     for (const permission of permissions) {
@@ -20,7 +19,6 @@ describe("hasPermission — the security boundary every portal mutation route ch
   it("denies ADMIN the owner-only permissions", () => {
     expect(hasPermission("ADMIN", "members.changeRole")).toBe(false);
     expect(hasPermission("ADMIN", "billing.manage")).toBe(false);
-    expect(hasPermission("ADMIN", "featureFlags.manage")).toBe(false);
   });
 
   it("grants ADMIN the permissions it should have", () => {
@@ -37,7 +35,6 @@ describe("hasPermission — the security boundary every portal mutation route ch
       "members.remove",
       "members.changeRole",
       "billing.manage",
-      "featureFlags.manage",
       "activity.viewOrganization",
     ] as const;
     for (const permission of permissions) {
