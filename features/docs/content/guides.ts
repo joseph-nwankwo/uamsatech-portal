@@ -92,12 +92,12 @@ export const guidesDocs: DocPage[] = [
       { type: "h2", text: "Owner" },
       {
         type: "p",
-        text: "Full control: organization settings, billing, feature flags, and can change or remove any member, including other admins.",
+        text: "Full control: organization settings, billing, and can change or remove any member, including other admins.",
       },
       { type: "h2", text: "Admin" },
       {
         type: "p",
-        text: "Can invite and remove members, update organization settings, and view organization-wide activity. Cannot manage billing, feature flags, or change member roles.",
+        text: "Can invite and remove members, update organization settings, and view organization-wide activity. Cannot manage billing or change member roles.",
       },
       { type: "h2", text: "Member" },
       {

@@ -1,5 +1,37 @@
 # UAMSATech Portal — Status Audit
 
+## Current verification status (branch `fix/s1-s2-admin-gate`, 2026-11-23)
+
+This section is current. Everything from "Historical audit" down is the 2026-11-21 audit, kept for reference: its test counts, file counts and findings describe the code **as it was then**. Where a finding has since been fixed, the finding itself says so (S1, S2).
+
+**Codex audit, 2026-11-23:**
+
+| #   | Finding                                                                                      | Status                                                                                          |
+| --- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1   | S1 migration used `btrim()` (spaces only) while the app trims all JS whitespace              | **Fixed**: one 25-character set in the app, the migration function, the CHECK and the preflight |
+| 2   | Newsletter emails not normalized                                                             | Deferred                                                                                        |
+| 3   | Email fallback                                                                               | Deferred                                                                                        |
+| 4   | Launch route                                                                                 | Planned launch task                                                                             |
+| 5   | `scripts/grant-test-subscription.mjs` looked users up case-insensitively on the raw argument | **Fixed**: `normalizeEmail()` + exact lookup                                                    |
+| 6   | `features/docs/content/guides.ts` said organization owners manage feature flags              | **Fixed**: matches S2 (platform admins only)                                                    |
+| 7   | STATUS.md mixed the earlier audit's results with current claims                              | **Fixed**: this section; the audit below is labelled historical                                 |
+
+**Verified on this branch (2026-11-23):**
+
+- S1 migration on a scratch local Postgres 18 database (UTF8, `standard_conforming_strings` on), via the real `prisma migrate deploy`, seeded with mixed-case emails, emails wrapped in spaces/tabs/newlines/CRLF/NBSP/BOM/U+3000, a `users` duplicate pair (tab + case), an `invitations` duplicate pair in one org (NBSP) and one pair across two orgs:
+  - with the `users` duplicate present it aborted; rows byte-identical, function and CHECK absent afterwards;
+  - with only the `invitations` duplicate present it aborted the same way;
+  - after removing both and `migrate resolve --rolled-back`, it succeeded: every row normalized, the cross-org pair kept;
+  - `portal_normalize_email()` swept over every BMP code point strips exactly the 25 listed characters, and still works in a session with `standard_conforming_strings` off;
+  - the CHECK rejected `Upper@x.com`, `' a@x.com'`, `'a@x.com\t'`, `'\na@x.com'`, NBSP- and BOM-wrapped emails, and accepted a normalized one;
+  - `scripts/preflight-s1.sql` on the same seeded data listed both duplicate groups and 6 rows to rewrite.
+- Local dev database (`localhost/uamsatech`) reset with `prisma migrate reset` after a verified `pg_dump` backup (restore-tested into a scratch database: 43/43 tables, row counts identical). `prisma migrate status`: up to date. `migrate diff` (migrations → schema, and live DB → schema): no difference. The dev database has `portal_normalize_email()` and `CHECK users_email_normalized`.
+- **Unit:** 360 / 360 passed (16 files). **Security / integration:** 36 / 36 passed (9 files) against `next start`. **Typecheck:** 0 errors. **Lint:** 0 problems. **Build:** passes.
+- Not verified here: production. The S1 migration has not been applied there (see the S1 deploy checklist).
+- Known gap: `npm run db:restore` (`scripts/restore-db.sh`) only reads `DATABASE_URL` from the shell (not `.env`), needs `pg_restore` on PATH, and **echoes the full connection URL including the password** (line 20). Use `pg_restore -d <db> --clean --if-exists --no-owner --no-privileges <dump>` directly until it's fixed.
+
+## Historical audit (2026-11-21)
+
 **Audit date:** 2026-11-21
 **Audited:** working tree of branch `fix-scholarsuite-product-page` (commit `20d52ec` plus 7 uncommitted modified files and 3 untracked files)
 **Method:** I read the code, ran every check locally, inspected the local database, and probed the running production build. README files and code comments were not taken as evidence. No application code was changed during the audit.
@@ -209,25 +241,32 @@ Legend: **Done** = works end to end as far as I could verify · **Partial** = wo
 
 What changed on `fix/s1-s2-admin-gate`:
 
-- One helper, `normalizeEmail()` (trim + lowercase) and the Zod field `emailField()` in `lib/auth/normalize-email.ts`, used at every email write, lookup and comparison: signup, login, forgot-password, invitations (create, accept-match, invite page), the entitlement lookup, `/api/internal/entitlements/verify`, the launch JWT `email` claim, contact, bug reports, and the signup/login/forgot-password/contact forms. No ad-hoc `.toLowerCase()` on emails remains.
+- One helper, `normalizeEmail()` (strip edge whitespace + lowercase) and the Zod field `emailField()` in `lib/auth/normalize-email.ts`, used at every email write, lookup and comparison. "Edge whitespace" is `EMAIL_TRIM_CODE_POINTS`: exactly the 25 characters JS `trim()` strips (tab, LF, VT, FF, CR, space, NBSP, U+1680, U+2000–200A, U+2028/2029, U+202F, U+205F, U+3000, BOM). Used by: signup, login, forgot-password, invitations (create, accept-match, invite page), the entitlement lookup, `/api/internal/entitlements/verify`, the launch JWT `email` claim, contact, bug reports, and the signup/login/forgot-password/contact forms. No ad-hoc `.toLowerCase()` on emails remains.
 - Signup maps a P2002 race on `users_email_key` to the same 409 as a normal duplicate.
 - `/admin` gate (`lib/admin/auth.ts`): the user is loaded from the DB by session id; admin only if `emailVerified` is set **and** the normalized email is in the normalized `ADMIN_EMAILS`. Empty or missing `ADMIN_EMAILS` means no admins. Checked in the layout **and** every `/admin` page. `requireAdminApi()` is used by admin API routes (first one: the S2 feature-flag route).
 - Entitlement lookup is an exact lookup on the normalized email, so `ambiguous_account` can no longer happen because of email case. The response shape is unchanged.
-- Migration `20261121120000_s1_normalize_emails`: aborts on case/whitespace duplicates in `users` and in `invitations` (per org), normalizes existing rows, adds `CHECK users_email_normalized`. Prisma doesn't model CHECK constraints; `migrate diff` (both `--from-migrations` and `--from-url`) shows no drift.
+- Migration `20261121120000_s1_normalize_emails` (edited 2026-11-23, Codex finding 1; it had only ever been applied to local dev): creates the SQL function `portal_normalize_email(text)`, which strips the same 25 characters as the app (regex `^[…]+|[…]+$` with `\uXXXX` escapes in an `E''` literal, so it doesn't depend on `standard_conforming_strings`), then `lower()`. The duplicate guards for `users` and for `invitations` (per org), the UPDATEs and `CHECK users_email_normalized` all use the function. The guards run before any write. Previously the SQL used `btrim()`, which strips only spaces, so tab/newline/NBSP variants slipped past the guards, the UPDATE and the CHECK. `scripts/preflight-s1.sql` inlines the same regex (the function doesn't exist before the migration). `tests/unit/normalize-email.test.ts` proves the app list equals JS `trim()` over every BMP code point and that every character class in the migration and the preflight equals the app list. Prisma models neither CHECK constraints nor functions; `migrate diff` shows no drift.
+- **The CHECK depends on the function.** `CHECK users_email_normalized` calls `portal_normalize_email()` (also recorded in `COMMENT ON FUNCTION`). If the function ever changes: drop or replace the constraint first, change the function (and `normalizeEmail()` and the preflight together), re-normalize existing rows, then re-add the constraint. Never `CREATE OR REPLACE` the function underneath a live constraint: rows checked under the old definition aren't re-checked.
+- **Lowercasing caveat (not fixed):** JS `toLowerCase()` and Postgres `lower()` can differ for non-ASCII letters depending on the database collation. Not reachable today because `z.email()` only accepts ASCII; revisit if internationalised addresses are ever allowed.
 
 **Production steps, in this order. Production migrations are applied by hand.**
 
 1. **Run `scripts/preflight-s1.sql` on production first** (read-only, see its header for the `psql` command and the `:admin_emails` variable). Query 1 and query 4 must return no rows, or the migration aborts. Query 3 shows which accounts hold each allowlisted address.
 2. **Check that the real admin accounts are verified** (query 3, `emailVerified`). After this deploy an unverified admin gets a 404 on `/admin`. Locally the only real allowlisted account is unverified. Verify it through the normal email link (needs Resend), or set `emailVerified` by hand after confirming who owns the account.
 3. If query 3 shows an account the real admin doesn't own (S1 exploited), deal with it before deploying: review its activity, then delete or rename it by hand.
-4. Apply the migration: `npx prisma migrate deploy`.
-5. Deploy the code. **Don't deploy the code before the migration**: users whose stored email has capitals couldn't log in until their row is normalized.
-6. Never add `security-admin@example.com` (test-only, used by `tests/security/email-normalization.test.ts`) to the production `ADMIN_EMAILS`.
+4. Apply the migration: `npx prisma migrate deploy`. Production already has `_prisma_migrations` with the baseline and 007 finished (checked read-only 2026-11-23), so no `migrate resolve --applied` is needed first.
+5. **If the migration aborts** (a duplicate the preflight would have shown): Postgres rolls back everything, including the function, but Prisma records the migration as failed and refuses further deploys (`P3009`). Fix the duplicates, run `npx prisma migrate resolve --rolled-back 20261121120000_s1_normalize_emails`, then deploy again. Verified on a scratch database 2026-11-23.
+6. Deploy the code. **Don't deploy the code before the migration**: users whose stored email has capitals couldn't log in until their row is normalized.
+7. Never add `security-admin@example.com` (test-only, used by `tests/security/email-normalization.test.ts`) to the production `ADMIN_EMAILS`.
+
+Production facts as of 2026-11-23 (read-only checks; no production writes):
+
+- `ADMIN_EMAILS` was removed from Vercel Production and production redeployed, so nobody is an admin until S1 ships. The previous value is backed up outside the repo; restore it after this deploy, then redeploy.
+- The only account matching the admin allowlist is the real admin's, stored exactly as listed, created 2026-07-11, **`emailVerified` NULL**: verify it before restoring `ADMIN_EMAILS` (step 2). No case/whitespace variants of either allowlisted address exist; no `users` or per-org `invitations` duplicates (that check stripped space/tab/CR/LF only; the updated preflight checks all 25 characters, so run it again before migrating).
 
 Follow-ups (not done in the S1 change):
 
-- **Newsletter normalization:** `app/api/newsletter/subscribe` still stores the email as typed, and `newsletter_subscribers.email` is case-sensitively unique. It needs `emailField()` plus the same guard/normalize migration.
-- **`scripts/grant-test-subscription.mjs`** still looks up users case-insensitively; switch it to `normalizeEmail` with an exact lookup.
+- **Newsletter normalization** (Codex finding 2, deferred): `app/api/newsletter/subscribe` still stores the email as typed, and `newsletter_subscribers.email` is case-sensitively unique. It needs `emailField()` plus the same guard/normalize migration.
 - **S6** is still open: launch tokens can carry an unverified email.
 - CI still uses `prisma db push`, so the CI database doesn't get the CHECK constraint (see roadmap #7).
 - The security suite uses the full 5/hour signup budget; revisit with S3.

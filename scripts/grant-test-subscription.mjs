@@ -16,6 +16,8 @@
  */
 import "dotenv/config";
 import prismaClient from "@prisma/client";
+// The app's one email normaliser (Node 24 runs the .ts file directly).
+import { normalizeEmail } from "../lib/auth/normalize-email.ts";
 
 const { PrismaClient } = prismaClient;
 
@@ -38,7 +40,8 @@ function describeTarget() {
 }
 
 async function main() {
-  const email = arg("email");
+  const rawEmail = arg("email");
+  const email = rawEmail ? normalizeEmail(rawEmail) : rawEmail;
   const productSlug = arg("product", "researchsuite");
   const planKey = arg("plan", "free");
   const days = Number(arg("days", "90"));
@@ -57,9 +60,10 @@ async function main() {
   );
 
   try {
-    const user = await db.user.findFirst({
-      where: { email: { equals: email, mode: "insensitive" } },
-    });
+    // Exact lookup on the normal form: stored emails are normalized (S1,
+    // CHECK users_email_normalized), so case-insensitive matching is not
+    // needed and could match an un-normalized duplicate.
+    const user = await db.user.findUnique({ where: { email } });
     if (!user)
       throw new Error(
         `No portal account with email ${email}. Sign up on the portal first.`
