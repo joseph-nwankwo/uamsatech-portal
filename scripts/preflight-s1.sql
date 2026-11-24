@@ -29,6 +29,11 @@
 --      the real admin, are signs S1 was exploited. Also shows whether the
 --      real admin is verified (after the fix, unverified = no /admin access).
 --   4) Same as 1) for invitations, per organization.
+--   5) Rows whose email is not printable ASCII (0x20-0x7E) once normalized,
+--      per table: count and ids (no addresses). Any non-zero count means the
+--      migration WILL ABORT. Also catches inner control characters (a tab).
+--   6) The database's lc_ctype. lower() follows it; a Turkish locale would
+--      lowercase 'I' to a non-ASCII letter. Expect C, C.UTF-8 or en_US.UTF-8.
 
 \echo '1) users: case/whitespace duplicate groups (must be empty)'
 SELECT n.normalized_email,
@@ -78,3 +83,25 @@ SELECT n.normalized_email,
  GROUP BY n.normalized_email, n."organizationId"
 HAVING count(*) > 1
  ORDER BY invitations DESC, n.normalized_email;
+
+\echo '5) non-printable-ASCII emails after normalization (must be 0 in both tables)'
+SELECT v.tbl                                                     AS "table",
+       count(t.id)                                               AS non_printable_ascii,
+       coalesce(array_agg(t.id ORDER BY t.id) FILTER (WHERE t.id IS NOT NULL), '{}') AS ids
+  FROM (VALUES ('users'), ('invitations')) v(tbl)
+  LEFT JOIN (
+    SELECT 'users' AS tbl, u.id,
+           lower(regexp_replace(u.email, E'^[\\u0009-\\u000d\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]+|[\\u0009-\\u000d\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]+$', '', 'g')) AS normalized_email
+      FROM users u
+    UNION ALL
+    SELECT 'invitations', i.id,
+           lower(regexp_replace(i.email, E'^[\\u0009-\\u000d\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]+|[\\u0009-\\u000d\\u0020\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]+$', '', 'g'))
+      FROM invitations i
+  ) t ON t.tbl = v.tbl AND t.normalized_email !~ '^[ -~]*$'
+ GROUP BY v.tbl
+ ORDER BY v.tbl DESC;
+
+\echo '6) database locale (lower() follows lc_ctype)'
+SELECT current_database() AS database, datctype AS lc_ctype, datcollate AS lc_collate
+  FROM pg_database
+ WHERE datname = current_database();

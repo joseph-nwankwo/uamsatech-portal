@@ -13,10 +13,17 @@
  *   options: --product researchsuite (default)  --plan free (default)  --days 90 (default)
  *
  * Uses DATABASE_URL from the environment (or .env).
+ *
+ * Requires Node >= 22.18 (or >= 23.6): it imports the app's TypeScript email
+ * normaliser (lib/auth/normalize-email.ts) directly, which relies on Node's
+ * built-in type stripping. On Node 22.6-22.17 run it with
+ * `node --experimental-strip-types scripts/grant-test-subscription.mjs ...`.
+ * Deliberately not enforced via package.json "engines" (Vercel uses that for
+ * production builds).
  */
 import "dotenv/config";
 import prismaClient from "@prisma/client";
-// The app's one email normaliser (Node 24 runs the .ts file directly).
+// The app's one email normaliser (see the Node version note above).
 import { normalizeEmail } from "../lib/auth/normalize-email.ts";
 
 const { PrismaClient } = prismaClient;

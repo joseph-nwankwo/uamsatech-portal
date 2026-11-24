@@ -118,19 +118,70 @@ describe("one trim set everywhere (app, migration, preflight)", () => {
 
     const code = sqlCode(MIGRATION);
     expect(code).not.toMatch(/btrim\s*\(/i);
-    // Guards, UPDATEs and the CHECK all go through the function.
-    expect(code).toMatch(
-      /CHECK \("email" = "portal_normalize_email"\("email"\)\)/
-    );
-    // CREATE 1 + COMMENT 1 + 2 guards + 2 UPDATEs x2 + CHECK 1.
-    expect(code.match(/"portal_normalize_email"\(/g)?.length).toBe(9);
     expect(code).toMatch(/COMMENT ON FUNCTION "portal_normalize_email"/);
+    // CREATE 1 + COMMENT 1 + 2 duplicate guards + 2 ASCII guards
+    // + 2 UPDATEs x2 + 2 normalized CHECKs.
+    expect(code.match(/"portal_normalize_email"\(/g)?.length).toBe(12);
+  });
+
+  it("migration.sql: both tables get the normalized and printable-ASCII CHECKs", () => {
+    const code = sqlCode(MIGRATION);
+    for (const table of ["users", "invitations"]) {
+      expect(code).toContain(
+        `ALTER TABLE "${table}" ADD CONSTRAINT "${table}_email_normalized" CHECK ("email" = "portal_normalize_email"("email"));`
+      );
+      expect(code).toContain(
+        `ALTER TABLE "${table}" ADD CONSTRAINT "${table}_email_ascii" CHECK ("email" ~ '^[ -~]*$');`
+      );
+    }
+  });
+
+  it("migration.sql: all guards (duplicates and non-printable-ASCII, both tables) run before the first write", () => {
+    const code = sqlCode(MIGRATION);
+    const firstWrite = code.search(/^\s*(UPDATE|ALTER TABLE)\b/m);
+    expect(firstWrite).toBeGreaterThan(0);
+    const guards = [
+      "users.email has case/whitespace duplicates",
+      "invitations has case/whitespace duplicates",
+      "users row(s) have a non-printable-ASCII email",
+      "invitations row(s) have a non-printable-ASCII email",
+    ];
+    for (const g of guards) {
+      const at = code.indexOf(g);
+      expect(at, g).toBeGreaterThan(0);
+      expect(at, `${g} must come before the first write`).toBeLessThan(
+        firstWrite
+      );
+    }
+    // The ASCII guards test the normalized value with the same rule as the CHECK.
+    expect(
+      code.match(/WHERE "portal_normalize_email"\(email\) !~ '\^\[ -~\]\*\$'/g)
+        ?.length
+    ).toBe(2);
+  });
+
+  it("the printable-ASCII rule matches exactly 0x20-0x7E", () => {
+    const rule = /^[ -~]*$/; // same pattern as the SQL CHECK
+    for (let cp = 0; cp <= 0xffff; cp++) {
+      expect(rule.test(String.fromCharCode(cp)), `U+${hex(cp)}`).toBe(
+        cp >= 0x20 && cp <= 0x7e
+      );
+    }
   });
 
   it("preflight-s1.sql: every inlined expression uses the same set, no btrim()", () => {
     const classes = sqlTrimClasses(PREFLIGHT);
-    expect(classes).toHaveLength(4);
+    expect(classes).toHaveLength(6);
     for (const c of classes) expect(c.map(hex)).toEqual(expected.map(hex));
     expect(sqlCode(PREFLIGHT)).not.toMatch(/btrim\s*\(/i);
+  });
+
+  it("preflight-s1.sql: reports non-printable-ASCII counts for both tables and the locale", () => {
+    const code = sqlCode(PREFLIGHT);
+    expect(code).toMatch(/non-printable-ASCII/);
+    expect(code).toMatch(/VALUES \('users'\), \('invitations'\)/);
+    expect(code).toMatch(/normalized_email !~ '\^\[ -~\]\*\$'/);
+    expect(code).toMatch(/datctype AS lc_ctype/);
+    expect(code).not.toMatch(/\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE)\b/i);
   });
 });
